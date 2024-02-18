@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<plugin>
+    <author>Ignite Realtime</author>
+    <class>ia.konnekted.konstrukt.ofkhatbot.LLaMA</class>
+    <name>${project.name}</name>
+    <description>${project.description}</description>
+    <version>${project.version}</version>
+    <licenseType>Apache 2.0</licenseType>
+    <parentPlugin>monitoring</parentPlugin>
+    <date>2024-02-11</date>
+    <minServerVersion>4.6.0</minServerVersion>
+    <csrfProtectionEnabled>true</csrfProtectionEnabled>
+
+   <adminconsole> 
+        <tab id="tab-webclients" name="${admin.sidebar.webclients.name}" description="${admin.sidebar.webclients.description}" url="chatbot-settings.jsp">
+            <sidebar id="tab-chatbot" name="${plugin.title}" description="${plugin.description}">
+				<item id="chatbot-settings" name="${config.page.settings}" description="${config.page.settings.description}" url="chatbot-settings.jsp"/>
+            </sidebar>
+        </tab>			
+    </adminconsole> 
+</plugin>
