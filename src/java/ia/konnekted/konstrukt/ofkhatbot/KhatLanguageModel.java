@@ -1,6 +1,7 @@
 package ia.konnekted.konstrukt.ofkhatbot;
 
 import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.ollama.OllamaChatModel;
 import lombok.Value;
 import org.jivesoftware.util.cache.CacheSizes;
 import org.jivesoftware.util.cache.Cacheable;

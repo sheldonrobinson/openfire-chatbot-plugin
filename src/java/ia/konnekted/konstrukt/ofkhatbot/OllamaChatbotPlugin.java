@@ -1,5 +1,6 @@
 package ia.konnekted.konstrukt.ofkhatbot;
 
+import org.dom4j.Element;
 import org.igniterealtime.openfire.botz.BotzConnection;
 import org.igniterealtime.openfire.botz.BotzPacketReceiver;
 import org.jivesoftware.openfire.XMPPServer;
@@ -9,10 +10,10 @@ import com.reucon.openfire.plugin.archive.PersistenceManager;
 import com.reucon.openfire.plugin.archive.model.Conversation;
 import com.reucon.openfire.plugin.archive.model.ArchivedMessage;
 import org.jivesoftware.openfire.archive.ConversationManager;
+import org.jivesoftware.openfire.archive.ArchiveSearcher;
 import org.jivesoftware.openfire.muc.*;
 import org.jivesoftware.openfire.plugin.MonitoringPlugin;
 import org.jivesoftware.openfire.archive.MonitoringConstants;
-import org.jivesoftware.openfire.vcard.VCardManager;
 import org.jivesoftware.openfire.user.UserManager;
 import org.jivesoftware.util.JiveGlobals;
 import org.jivesoftware.util.PropertyEventDispatcher;
@@ -40,25 +41,14 @@ public class OllamaChatbotPlugin implements Plugin, PropertyEventListener, MUCEv
 
     private MultiUserChatManager mucManager;
     private UserManager userManager;
-
-    private VCardManager vCardManager;
-
     private PluginManager pluginManager;
     private ConversationManager conversationManager;
-
+    private ArchiveSearcher archiveSearcher;
+    private MonitoringPlugin plugin;
+    private boolean enabled;
     private final Cache<JID, KhatLanguageModel> cache = CacheFactory.createCache(Constants.CHATBOT_LLM_CACHE_NAME);
 
-    private static final OllamaSettings model = OllamaSettings.builder()
-            .alias(JiveGlobals.getProperty("chatbot.alias",Constants.CHATBOT_ALIAS_DEFAULT))
-            .model(JiveGlobals.getProperty("chatbot.llm.model",Constants.CHATBOT_LLM_MODEL_DEFAULT))
-            .url(JiveGlobals.getProperty("chatbot.host.url",Constants.CHATBOT_HOST_URL_DEFAULT))
-            .format(JiveGlobals.getProperty("chatbot.llm.format",Constants.CHATBOT_LLM_FORMAT_DEFAULT))
-            .temperature(JiveGlobals.getDoubleProperty("chatbot.llm.temperature",Constants.CHATBOT_LLM_TEMPERATURE_DEFAULT))
-            .topK(JiveGlobals.getIntProperty("chatbot.llm.top.k.sampling",Constants.CHATBOT_LLM_TOP_K_DEFAULT))
-            .topP(JiveGlobals.getDoubleProperty("chatbot.llm.top.p.sampling",Constants.CHATBOT_LLM_TOP_P_DEFAULT))
-            .repeatPenalty((JiveGlobals.getDoubleProperty("chatbot.llm.repeat.penalty",Constants.CHATBOT_LLM_REPEAT_PENALTY_DEFAULT)))
-            .predictions((JiveGlobals.getIntProperty("chatbot.llm.predictions",Constants.CHATBOT_LLM_PREDICTIONS_DEFAULT)))
-            .build();
+    private OllamaSettings model;
 
     private static OllamaChatbotPlugin instance;
 
@@ -68,7 +58,6 @@ public class OllamaChatbotPlugin implements Plugin, PropertyEventListener, MUCEv
         instance = this;
         userManager = XMPPServer.getInstance().getUserManager();
         mucManager = XMPPServer.getInstance().getMultiUserChatManager();
-        vCardManager =XMPPServer.getInstance().getVCardManager();
     }
 
     public static OllamaChatbotPlugin getInstance() {
@@ -81,7 +70,19 @@ public class OllamaChatbotPlugin implements Plugin, PropertyEventListener, MUCEv
     @Override
     public void initializePlugin(PluginManager pluginManager, File file) {
         pluginManager = pluginManager;
-        boolean llamaEnabled = JiveGlobals.getBooleanProperty("assistant.enabled", true);
+        enabled = JiveGlobals.getBooleanProperty("chatbot.enabled", true);
+
+        model = OllamaSettings.builder()
+                .alias(JiveGlobals.getProperty("chatbot.alias",Constants.CHATBOT_ALIAS_DEFAULT))
+                .model(JiveGlobals.getProperty("chatbot.llm.model",Constants.CHATBOT_LLM_MODEL_DEFAULT))
+                .url(JiveGlobals.getProperty("chatbot.host.url",Constants.CHATBOT_HOST_URL_DEFAULT))
+                .format(JiveGlobals.getProperty("chatbot.llm.format",Constants.CHATBOT_LLM_FORMAT_DEFAULT))
+                .temperature(JiveGlobals.getDoubleProperty("chatbot.llm.temperature",Constants.CHATBOT_LLM_TEMPERATURE_DEFAULT))
+                .topK(JiveGlobals.getIntProperty("chatbot.llm.top.k.sampling",Constants.CHATBOT_LLM_TOP_K_DEFAULT))
+                .topP(JiveGlobals.getDoubleProperty("chatbot.llm.top.p.sampling",Constants.CHATBOT_LLM_TOP_P_DEFAULT))
+                .repeatPenalty((JiveGlobals.getDoubleProperty("chatbot.llm.repeat.penalty",Constants.CHATBOT_LLM_REPEAT_PENALTY_DEFAULT)))
+                .predictions((JiveGlobals.getIntProperty("chatbot.llm.predictions",Constants.CHATBOT_LLM_PREDICTIONS_DEFAULT)))
+                .build();
 
 
         BotzPacketReceiver packetReceiver = new BotzPacketReceiver() {
@@ -94,27 +95,31 @@ public class OllamaChatbotPlugin implements Plugin, PropertyEventListener, MUCEv
             @Override
             public void processIncoming(Packet packet) {
                 JID from = packet.getFrom();
-                if (packet instanceof Message) {
-                    org.xmpp.packet.Message.Type type = ((Message) packet).getType();
-                    switch(type) {
-                        case normal:
-                            break;
-                        case chat:
-                            break;
-                        case groupchat:
-                            break;
-                        case headline:
-                            break;
-                        case error:
+                if (enabled && !botzJid.equals(from)) {
+                    if (packet instanceof Message) {
+                        org.xmpp.packet.Message.Type type = ((Message) packet).getType();
+                        switch (type) {
+                            case normal:
                                 break;
+                            case chat:
+                                break;
+                            case groupchat:
+                                break;
+                            case headline:
+                                break;
+                            case error:
+                                break;
+                        }
+                        // Echo back to sender
+                        packet.setTo(packet.getFrom());
+                        bot.sendPacket(packet);
+                    } else if (packet instanceof Presence) {
+                        // Echo back to sender
+                        Presence presence = new Presence();
+                        presence.setStatus("Online");
+                        presence.setTo(packet.getFrom());
+                        bot.sendPacket(packet);
                     }
-                    // Echo back to sender
-                    packet.setTo(packet.getFrom());
-                    bot.sendPacket(packet);
-                } else if (packet instanceof Presence) {
-                    // Echo back to sender
-                    packet.setTo(packet.getFrom());
-                    bot.sendPacket(packet);
                 }
             }
             public void processIncomingRaw(String rawText) { };
@@ -126,9 +131,20 @@ public class OllamaChatbotPlugin implements Plugin, PropertyEventListener, MUCEv
         try {
             // Create user and login
             bot.login(Constants.CHATBOT_USERNAME);
-            org.dom4j.Element vCard = vCardManager.getVCard(Constants.CHATBOT_USERNAME);
 
             botzJid = new JID(bot.getUsername(), bot.getHostName(), bot.getResource());
+            {
+                IQ iq = new IQ();
+                iq.setTo(domain);
+                iq.setType(IQ.Type.set);
+
+                Element child = iq.setChildElement("vCard", "vcard-temp");
+                child.addElement("FN").setText(model.getAlias());
+                child.addElement("NICKNAME").setText(model.getAlias());
+
+                bot.sendPacket(iq);
+
+            }
             Presence presence = new Presence();
             presence.setStatus("Online");
             bot.sendPacket(presence);
@@ -139,16 +155,10 @@ public class OllamaChatbotPlugin implements Plugin, PropertyEventListener, MUCEv
         cache.setMaxCacheSize(JiveGlobals.getLongProperty("chatbot.model.cache.size",Constants.CHATBOT_MODEL_CACHE_SIZE_DEFAULT));
         cache.setMaxLifetime(JiveGlobals.getLongProperty("chatbot.model.cache.lifetime,",Constants.CHATBOT_MODEL_CACHE_LIFETIME_DEFAULT));
 
-        MonitoringPlugin plugin =
-                (MonitoringPlugin) pluginManager.getPluginByName(MonitoringConstants.PLUGIN_NAME).get();
+        plugin = (MonitoringPlugin) pluginManager.getPluginByName(MonitoringConstants.PLUGIN_NAME).get();
 
-        conversationManager = MonitoringPlugin.getInstance().getConversationManager();
-
-        mucManager = XMPPServer.getInstance().getMultiUserChatManager();
-
-        userManager = XMPPServer.getInstance().getUserManager();
-
-        vCardManager = XMPPServer.getInstance().getVCardManager();
+        conversationManager = plugin.getConversationManager();
+        archiveSearcher = plugin.getArchiveSearcher();
 
         PropertyEventDispatcher.addListener(this);
         MUCEventDispatcher.addListener(this);
@@ -168,18 +178,21 @@ public class OllamaChatbotPlugin implements Plugin, PropertyEventListener, MUCEv
             Log.error( "An exception occurred while trying to unload the OllamaChatbot.", ex );
         }
         CacheFactory.destroyCache(Constants.CHATBOT_LLM_CACHE_NAME);
-
+        model = null;
+        mucManager = null;
         userManager = null;
         conversationManager = null;
+        plugin = null;
         pluginManager = null;
-        vCardManager = null;
         instance = null;
 
     }
 
     @Override
-    public void propertySet(String s, Map<String, Object> map) {
-
+    public void propertySet(String property, Map<String, Object> map) {
+        if ("chatbot.enabled".equals(property)) {
+            enabled = JiveGlobals.getBooleanProperty("chatbot.enabled", true);
+        }
     }
 
     @Override
@@ -202,7 +215,7 @@ public class OllamaChatbotPlugin implements Plugin, PropertyEventListener, MUCEv
         if(!cache.containsKey(jid)){
 
         }else {
-            PersistenceManager persistenceManager = MonitoringPlugin.getInstance().getPersistenceManager(jid);
+            PersistenceManager persistenceManager = plugin.getPersistenceManager(jid);
             Collection<Conversation> conversations = persistenceManager.findConversations(null, null, null, jid, null);
             Collection<ArchivedMessage> messages = conversations.stream().flatMap( conversation -> conversation.getMessages().stream())
                     .collect(Collectors.toList());

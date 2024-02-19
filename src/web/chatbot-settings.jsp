@@ -45,8 +45,8 @@
         int predictions = ParamUtils.getIntParameter(request, "predictions", Constants.CHATBOT_LLM_PREDICTIONS_DEFAULT);
         JiveGlobals.setProperty("chatbot.llm.predictions", String.valueOf(predictions));
 
-        String enabled = request.getParameter("enabled");
-        JiveGlobals.setProperty("chatbot.enabled", (enabled != null && enabled.equals("on")) ? "true": "false");
+        boolean enabled = ParamUtils.getBooleanParameter(request, "enabled", true);
+        JiveGlobals.setProperty("chatbot.enabled", String.valueOf(enabled));
     }
 
 
@@ -71,7 +71,7 @@
             <tbody> 
                 <tr>
                     <td nowrap  colspan="2">
-                        <input type="checkbox" name="enabled" <%= (JiveGlobals.getProperty("chatbot.enabled", "true").equals("true")) ? " checked" : "" %>>
+                        <input type="checkbox" name="enabled" <%= (JiveGlobals.getProperty("chatbot.enabled", "true").equals("true")) ? "checked" : "" %>>
                         <fmt:message key="config.page.configuration.enabled" />
                     </td>
                 </tr>
