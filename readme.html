@@ -1,0 +1,89 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome file</title>
+    <link rel="stylesheet" href="https://stackedit.io/style.css"/>
+</head>
+
+<body class="stackedit">
+<div class="stackedit__left">
+    <div class="stackedit__toc">
+
+        <ul>
+            <li>
+                <ul>
+                    <li><a href="#chatbot">Chatbot</a></li>
+                    <li><a href="#overview">Overview</a></li>
+                    <li><a href="#known-issues">Known Issues</a></li>
+                    <li><a href="#installation">Installation</a></li>
+                    <li><a href="#configuration">Configuration</a></li>
+                    <li><a href="#how-to-use">How to use</a></li>
+                    <li><a href="#advanced-configuration">Advanced Configuration</a></li>
+                </ul>
+            </li>
+        </ul>
+
+    </div>
+</div>
+<div class="stackedit__right">
+    <div class="stackedit__html">
+        <h2 id="chatbot">Chatbot</h2>
+        <p>Chatbot for Openfire<br>
+            This plugin is a wrapper to hosted AI Inference server for LLM chat models. It uses the HTTP API to create a
+            chatbot in Openfire which will engage in XMPP chat and groupchat conversations.</p>
+        <h2 id="overview">Overview</h2>
+        <img src="https://igniterealtime.github.io/openfire-llama-plugin/llama-chat.png">
+        <h2 id="known-issues">Known Issues</h2>
+        <p>Tested only for llama2</p>
+        <h2 id="installation">Installation</h2>
+        <p>copy assistant.jar to the plugins folder</p>
+        <h2 id="configuration">Configuration</h2>
+        <img src="https://igniterealtime.github.io/openfire-llama-plugin/llama-settings.png">
+        <h3 id="enable-llama">Enable CHatbot</h3>
+        <p>Enables or disables the plugin. Reload plugin or restart Openfire if this or any of the settings other
+            settings are changed.</p>
+        <h3 id="hosted-url">Host URL</h3>
+        <p>The URL to the remote server to be used. The plugin will assume that remote server has the correct LLaMA model and configuration. It will send requests to this URL.</p>
+        <h3 id="alias">Alias</h3>
+        <p>Set an alias for the model. The alias will be returned in chat responses.</p>
+        <h3 id="model-path">Model Format</h3>
+        <p>Specify the format in which results are return from the server. Default is json.</p>
+        <h3 id="system-prompt">System Prompt</h3>
+        <p>Prompting large language models like Llama 2 is an art and a science. Set your system prompt here. Default is
+            “You are a helpful assistant”</p>
+        <h3 id="predictions">Predictions</h3>
+        <p>Set the maximum number of tokens to predict when generating text. Note: May exceed the set limit slightly if
+            the last token is a partial multibyte character. When 0, no tokens will be generated but the prompt is
+            evaluated into the cache. Default is 256</p>
+        <h3 id="temperature">Temperature</h3>
+        <p>Adjust the randomness of the generated text (default: 0.5).</p>
+        <h3 id="top-k-sampling">Top K Sampling</h3>
+        <p>Limit the next token selection to the K most probable tokens (default: 40).</p>
+        <h3 id="top-p-sampling">Top P Sampling</h3>
+        <p>Limit the next token selection to a subset of tokens with a cumulative probability above a threshold P
+            (default: 0.95).</p>
+        <h2 id="how-to-use">How to use</h2>
+        <img src="https://igniterealtime.github.io/openfire-llama-plugin/llama-test.png">
+        <p>To confirm that llama.cpp is working, use the demo web app to test.</p>
+        <p>The plugin will create an Openfire user called Assistant (by default). The user can be engaged with in chat
+            or groupchats from any XMPP client application like Spark, Converse or Conversations.</p>
+        <h3 id="chat">Chat</h3>
+        <p>Add assistant as a contact and start a chat conversation</p>
+        <pre><code>(22:20) User: what are female goats called?
+(22:20) Assistant:   Female goats are called does.
+</code></pre>
+        <h3 id="group-chat">Group Chat</h3>
+        <p>Start as chat message with the LLaMA username (llama) and LLaMA will join the groupchat and respond to the
+            message typed.</p>
+        <pre><code>(22:19) User: llama, what is a radiogram?
+(22:19) Assistant:   Oh my llama-ness! I'm so glad you asked! A radiogram (also known as a wireless gram) is an old-fashioned term for a message or telegram that is sent via radio communication.
+</code></pre>
+        <p>Note that this only works with group-chats hosted in your Openfire server. Federation is not supported.</p>
+    </div>
+</div>
+</body>
+
+</html>

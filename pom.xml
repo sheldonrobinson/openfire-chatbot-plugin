@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<artifactId>plugins</artifactId>
+		<groupId>org.igniterealtime.openfire</groupId>
+		<version>4.7.5</version>
+	</parent>
+
+	<groupId>ia.konnkted.konstrukt</groupId>
+	<artifactId>chatbot</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<name>ChatBot</name>
+	<description>Chatbot for Openfire</description>
+
+    <properties>
+        <openfire.version>4.7.5</openfire.version>
+		<langchain4j.version>0.27.1</langchain4j.version>
+		<github.global.server>github</github.global.server>
+    </properties>
+	<licenses>
+		<license>
+			<name>The Apache License, Version 2.0</name>
+			<url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+		</license>
+	</licenses>
+	<developers>
+		<developer>
+			<name>Sheldon Robinson</name>
+			<email>sheldon@sjrobinsonconsulting.com</email>
+			<organization>SJ Robinson Consulting</organization>
+			<organizationUrl>https://sjrobinsonconsulting.com/</organizationUrl>
+		</developer>
+	</developers>
+	<scm>
+		<connection>scm:git:git://github.com/sheldonrobinbson/openfire-chatbot-plugin.git</connection>
+		<developerConnection>scm:git:ssh://github.com:sheldonrobinbson/openfire-chatbot-plugin.git</developerConnection>
+		<url>http://github.com/sheldonrobinbson/openfire-chatbot-plugin/tree/master</url>
+	</scm>
+	<build>
+		<sourceDirectory>src/java</sourceDirectory>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-resources-plugin</artifactId>
+				<version>3.3.1</version>
+				<configuration>
+					<encoding>UTF-8</encoding>
+				</configuration>
+			</plugin>
+			<plugin>
+			    <groupId>org.apache.maven.plugins</groupId>
+			    <artifactId>maven-assembly-plugin</artifactId>
+			    <dependencies>
+                    <dependency>
+                        <groupId>org.igniterealtime.openfire.plugins</groupId>
+                        <artifactId>openfire-plugin-assembly-descriptor</artifactId>
+                        <version>${openfire.version}</version>
+                    </dependency>
+                </dependencies>
+                <executions>
+                    <execution>
+                        <id>make-assembly</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                        <configuration>
+                            <appendAssemblyId>false</appendAssemblyId>
+                            <finalName>${project.artifactId}</finalName>
+                            <attach>false</attach>
+                            <descriptorRefs>
+                                <descriptorRef>openfire-plugin-assembly</descriptorRef>
+                            </descriptorRefs>
+                        </configuration>
+                    </execution>
+                </executions>
+			</plugin>
+			<plugin>
+				<groupId>org.eclipse.jetty</groupId>
+				<artifactId>jetty-jspc-maven-plugin</artifactId>
+				<executions>
+                    <execution>
+                        <id>jspc</id>
+                        <goals>
+                            <goal>jspc</goal>
+                        </goals>
+                        <configuration>
+                            <jspc>
+                                <package>org.jivesoftware.openfire.plugin.${project.artifactId}</package>
+                            </jspc>
+                        </configuration>
+                    </execution>
+                </executions>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.igniterealtime.openfire</groupId>
+                        <artifactId>xmppserver</artifactId>
+                        <version>${openfire.version}</version>
+                    </dependency>
+                </dependencies>
+			</plugin>
+		    <plugin>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>maven-bundle-plugin</artifactId>
+                <version>3.0.0</version>
+                <extensions>true</extensions>
+            </plugin>
+			<plugin>
+				<artifactId>maven-deploy-plugin</artifactId>
+				<version>2.8.1</version>
+				<configuration>
+					<altDeploymentRepository>internal.repo::default::file://${project.build.directory}/mvn-repo</altDeploymentRepository>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>com.github.github</groupId>
+				<artifactId>site-maven-plugin</artifactId>
+				<version>0.12</version>
+				<configuration>
+					<message>Creating site for ${project.name}/${project.version}</message>
+					<outputDirectory>${project.build.directory}/mvn-repo</outputDirectory>
+					<branch>refs/heads/mvn-repo</branch>
+					<includes>
+						<include>**/*</include>
+					</includes>
+				</configuration>
+				<executions>
+					<execution>
+						<goals>
+							<goal>site</goal>
+						</goals>
+						<phase>site</phase>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.sonatype.central</groupId>
+				<artifactId>central-publishing-maven-plugin</artifactId>
+				<version>0.3.0</version>
+				<extensions>true</extensions>
+				<configuration>
+					<publishingServerId>central</publishingServerId>
+					<tokenAuth>true</tokenAuth>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+	<distributionManagement>
+		<repository>
+			<id>internal.repo</id>
+			<name>Temporary Staging Repository</name>
+			<url>file://${project.build.directory}/mvn-repo</url>
+		</repository>
+	</distributionManagement>
+	<dependencies>
+		<dependency>
+			<groupId>org.igniterealtime.openfire.plugins</groupId>
+			<artifactId>monitoring</artifactId>
+			<version>2.5.0</version>
+			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.igniterealtime.openfire</groupId>
+			<artifactId>xmppserver</artifactId>
+			<version>${openfire.version}</version>
+			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.igniterealtime.openfire.botz</groupId>
+			<artifactId>botz</artifactId>
+			<version>1.2.0</version>
+		</dependency>
+
+		<dependency>
+			<groupId>dev.langchain4j</groupId>
+			<artifactId>langchain4j</artifactId>
+			<version>${langchain4j.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>dev.langchain4j</groupId>
+			<artifactId>langchain4j-embeddings</artifactId>
+			<version>${langchain4j.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>dev.langchain4j</groupId>
+			<artifactId>langchain4j-ollama</artifactId>
+			<version>${langchain4j.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>dev.langchain4j</groupId>
+			<artifactId>langchain4j-document-parser-apache-pdfbox</artifactId>
+			<version>${langchain4j.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>dev.langchain4j</groupId>
+			<artifactId>langchain4j-document-parser-apache-poi</artifactId>
+			<version>${langchain4j.version}</version>
+		</dependency>
+
+		<dependency>
+		    <groupId>org.json</groupId>
+		    <artifactId>json</artifactId>
+		    <version>20240205</version>
+		</dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>RELEASE</version>
+            <scope>compile</scope>
+        </dependency>
+	</dependencies>
+
+	<repositories>
+		<repository>
+	        <id>mvnrepository</id>
+	        <name>Maven Central Repository</name>
+	        <url>https://repo1.maven.org/maven2/</url>
+	    </repository>
+	    <repository>
+	        <id>sonatype</id>
+	        <name>Sonatype Repository</name>
+	        <url>https://oss.sonatype.org/content/repositories/releases/</url>
+	    </repository>
+		<repository>
+			<id>igniterealtime</id>
+			<name>Ignite Realtime Repository</name>
+			<url>https://igniterealtime.org/archiva/repository/maven/</url>
+		</repository>
+		<!-- For jrobin -->
+		<repository>
+			<id>opennms-repo</id>
+			<name>OpenNMS Release Repository</name>
+			<url>https://maven.mirrors.opennms.org/maven2/</url>
+		</repository>
+	</repositories>
+
+	<pluginRepositories>
+		<!-- Typically used to retrieve Maven plugins that are used by this
+		project.
+             This apparently is also used to botain the dependencies _used by_ these
+             plugins (such as the openfire-plugin-assembly-descriptor, needed to
+             package the project as an Openfire plugin!) -->
+		<pluginRepository>
+			<id>igniterealtime</id>
+			<name>Ignite Realtime Repository</name>
+			<url>https://igniterealtime.org/archiva/repository/maven/</url>
+		</pluginRepository>
+		<pluginRepository>
+	        <id>mvnrepository</id>
+	        <name>Maven Central Repository</name>
+	        <url>https://repo1.maven.org/maven2/</url>
+	    </pluginRepository>
+	</pluginRepositories>
+
+</project>
