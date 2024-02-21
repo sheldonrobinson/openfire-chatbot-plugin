@@ -1,7 +1,6 @@
 package ia.konnekted.konstrukt.ofkhatbot;
 
 import dev.langchain4j.data.message.AiMessage;
-import dev.langchain4j.data.message.ChatMessageType;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.ollama.OllamaChatModel;
 import dev.langchain4j.model.output.Response;
@@ -63,7 +62,7 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                     case normal:
                     case chat:
                     case groupchat:
-                        if(packet.getFrom().getResource() !=null){
+                        if(from.getResource() !=null){
                             // Private message , one-on-one message received, use ChatLanguageModel
                             respond((org.xmpp.packet.Message) packet);
                         }else {
@@ -80,7 +79,7 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                 // Echo back to sender
                 Presence presence = new Presence();
                 presence.setStatus("Online");
-                presence.setTo(packet.getFrom());
+                presence.setTo(from);
                 bot.sendPacket(packet);
             }
         }
@@ -90,6 +89,7 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
         executor.execute(new Runnable() {
             @Override
             public void run() {
+                plugin.sendChatState(message.getFrom(), ChatState.composing);
                 LinkedList<Message> messages = new LinkedList<>(plugin.getCachedMessages(message.getFrom()));
                 if(!messages.getLast().getType().equals(USER)){
                     messages.add(ChatbotPlugin.transform(message.getTo(), message.getFrom(),message));
@@ -101,6 +101,7 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                 newMessage.setThread(message.getThread());
                 newMessage.setBody(response.content().text());
                 bot.sendPacket(newMessage);
+                plugin.sendChatState(message.getFrom(), ChatState.active);
             }
         });
     }
@@ -109,6 +110,7 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
         executor.execute(new Runnable() {
             @Override
             public void run() {
+                plugin.sendChatState(message.getFrom(), ChatState.composing);
                 LinkedList<Message> messages = new LinkedList<>();
                 if (!StringUtils.isEmpty(plugin.getModel().getSystemPrompt())) {
                     messages.addFirst(new Message(message.getTo().toString(), message.getFrom(), message.getTo(), SYSTEM, plugin.getModel().getSystemPrompt()));
@@ -121,9 +123,13 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                 newMessage.setThread(message.getThread());
                 newMessage.setBody(response.content().text());
                 bot.sendPacket(newMessage);
+                plugin.sendChatState(message.getFrom(), ChatState.active);
             }
         });
     }
+
+
+
 
     @Override
     public void processIncomingRaw(String s) {
@@ -151,4 +157,5 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
         }
         botzJid = null;
     }
+
 }

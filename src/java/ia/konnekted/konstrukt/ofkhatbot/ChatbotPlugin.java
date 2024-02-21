@@ -1,6 +1,5 @@
 package ia.konnekted.konstrukt.ofkhatbot;
 
-import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.ChatMessageType;
 import org.apache.commons.lang3.StringUtils;
 import org.dom4j.Element;
@@ -185,6 +184,7 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
             presence.setTo(jid);
             presence.addChildElement("x", "http://jabber.org/protocol/muc");
             bot.sendPacket(presence);
+            sendChatState(jid, ChatState.active);
         }
     }
 
@@ -243,12 +243,24 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
         return cache.get(jid);
     }
 
+    public void sendChatState(JID roomJid, ChatState state){
+        org.xmpp.packet.Message message = new org.xmpp.packet.Message();
+        message.setType(org.xmpp.packet.Message.Type.chat);
+        PacketExtension chatState = new PacketExtension(state.name(), "http://jabber.org/protocol/chatstates");
+        message.addExtension(chatState);
+        message.setTo(roomJid);
+        bot.sendPacket(message);
+    }
+
     private LinkedList<Message> getMessages(JID jid) {
         ArchiveSearch search = new ArchiveSearch();
         search.setRoom(jid);
         Collection<Conversation> conversations = archiveSearcher.search(search);
-        LinkedList<Message> msgs = (conversations != null) ? conversations.stream().flatMap(conversation -> conversation.getMessages(conversationManager).stream())
-                .map(archivedMessage -> transform(jid, archivedMessage)).collect(Collectors.toCollection(LinkedList::new))
+        LinkedList<Message> msgs = (conversations != null) ? conversations.stream()
+                .flatMap(conversation -> conversation.getMessages(conversationManager).stream())
+                .filter(message -> !StringUtils.isEmpty(message.getBody()))
+                .map(archivedMessage -> transform(jid, archivedMessage))
+                .collect(Collectors.toCollection(LinkedList::new))
                 : new LinkedList<Message>();
         if(!StringUtils.isEmpty( model.getSystemPrompt())){
             Message systemPrompt = new Message(jid.toString(), jid, jid, ChatMessageType.SYSTEM, model.getSystemPrompt());
@@ -256,4 +268,6 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
         }
         return msgs;
     }
+
+
 }
