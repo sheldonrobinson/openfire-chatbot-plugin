@@ -1,19 +1,16 @@
 package ia.konnekted.konstrukt.ofkhatbot;
 
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.ChatMessageType;
+import org.apache.commons.lang3.StringUtils;
 import org.dom4j.Element;
 import org.igniterealtime.openfire.botz.BotzConnection;
-import org.igniterealtime.openfire.botz.BotzPacketReceiver;
 import org.jivesoftware.openfire.XMPPServer;
+import org.jivesoftware.openfire.archive.*;
 import org.jivesoftware.openfire.container.Plugin;
 import org.jivesoftware.openfire.container.PluginManager;
-import com.reucon.openfire.plugin.archive.PersistenceManager;
-import com.reucon.openfire.plugin.archive.model.Conversation;
-import com.reucon.openfire.plugin.archive.model.ArchivedMessage;
-import org.jivesoftware.openfire.archive.ConversationManager;
-import org.jivesoftware.openfire.archive.ArchiveSearcher;
 import org.jivesoftware.openfire.muc.*;
 import org.jivesoftware.openfire.plugin.MonitoringPlugin;
-import org.jivesoftware.openfire.archive.MonitoringConstants;
 import org.jivesoftware.openfire.user.UserManager;
 import org.jivesoftware.util.JiveGlobals;
 import org.jivesoftware.util.PropertyEventDispatcher;
@@ -27,52 +24,54 @@ import org.xmpp.packet.*;
 
 import java.io.File;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
+import java.util.LinkedList;
 import java.util.stream.Collectors;
 import java.util.Collection;
 
-public class OllamaChatbotPlugin implements Plugin, PropertyEventListener, MUCEventListener {
+public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventListener {
 
-    private static final Logger Log = LoggerFactory.getLogger(OllamaChatbotPlugin.class);
-    private ExecutorService executor;
-
+    private static final Logger Log = LoggerFactory.getLogger(ChatbotPlugin.class);
     private static final String domain = XMPPServer.getInstance().getServerInfo().getXMPPDomain();
     private static final String hostname = XMPPServer.getInstance().getServerInfo().getHostname();
 
     private MultiUserChatManager mucManager;
     private UserManager userManager;
     private PluginManager pluginManager;
+
+    private BotzConnection bot;
     private ConversationManager conversationManager;
     private ArchiveSearcher archiveSearcher;
     private MonitoringPlugin plugin;
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
     private boolean enabled;
-    private final Cache<JID, KhatLanguageModel> cache = CacheFactory.createCache(Constants.CHATBOT_LLM_CACHE_NAME);
 
-    private OllamaSettings model;
+    public Cache<JID, LinkedList<Message>> getCache() {
+        return cache;
+    }
 
-    private static OllamaChatbotPlugin instance;
+    public ChatModelSettings getModel() {
+        return model;
+    }
+
+    private final Cache<JID, LinkedList<Message>> cache = CacheFactory.createCache(Constants.CHATBOT_LLM_CACHE_NAME);
+
+    private ChatModelSettings model;
 
     private static JID botzJid;
 
-    public OllamaChatbotPlugin(){
-        instance = this;
+    public ChatbotPlugin(){
         userManager = XMPPServer.getInstance().getUserManager();
         mucManager = XMPPServer.getInstance().getMultiUserChatManager();
-    }
-
-    public static OllamaChatbotPlugin getInstance() {
-        if(instance == null){
-            new OllamaChatbotPlugin();
-        }
-        return instance;
     }
 
     @Override
     public void initializePlugin(PluginManager pluginManager, File file) {
         pluginManager = pluginManager;
-        enabled = JiveGlobals.getBooleanProperty("chatbot.enabled", true);
-
-        model = OllamaSettings.builder()
+        model = ChatModelSettings.builder()
                 .alias(JiveGlobals.getProperty("chatbot.alias",Constants.CHATBOT_ALIAS_DEFAULT))
                 .model(JiveGlobals.getProperty("chatbot.llm.model",Constants.CHATBOT_LLM_MODEL_DEFAULT))
                 .url(JiveGlobals.getProperty("chatbot.host.url",Constants.CHATBOT_HOST_URL_DEFAULT))
@@ -80,59 +79,16 @@ public class OllamaChatbotPlugin implements Plugin, PropertyEventListener, MUCEv
                 .temperature(JiveGlobals.getDoubleProperty("chatbot.llm.temperature",Constants.CHATBOT_LLM_TEMPERATURE_DEFAULT))
                 .topK(JiveGlobals.getIntProperty("chatbot.llm.top.k.sampling",Constants.CHATBOT_LLM_TOP_K_DEFAULT))
                 .topP(JiveGlobals.getDoubleProperty("chatbot.llm.top.p.sampling",Constants.CHATBOT_LLM_TOP_P_DEFAULT))
-                .repeatPenalty((JiveGlobals.getDoubleProperty("chatbot.llm.repeat.penalty",Constants.CHATBOT_LLM_REPEAT_PENALTY_DEFAULT)))
-                .predictions((JiveGlobals.getIntProperty("chatbot.llm.predictions",Constants.CHATBOT_LLM_PREDICTIONS_DEFAULT)))
+                .repeatPenalty(JiveGlobals.getDoubleProperty("chatbot.llm.repeat.penalty",Constants.CHATBOT_LLM_REPEAT_PENALTY_DEFAULT))
+                .predictions(JiveGlobals.getIntProperty("chatbot.llm.predictions",Constants.CHATBOT_LLM_PREDICTIONS_DEFAULT))
+                .systemPrompt(JiveGlobals.getProperty("chatbot.system.prompt",Constants.CHATBOT_SYSTEM_PROMPT_DEFAULT))
                 .build();
 
-
-        BotzPacketReceiver packetReceiver = new BotzPacketReceiver() {
-            BotzConnection bot;
-
-            public void initialize(BotzConnection bot) {
-                this.bot = bot;
-            }
-
-            @Override
-            public void processIncoming(Packet packet) {
-                JID from = packet.getFrom();
-                if (enabled && !botzJid.equals(from)) {
-                    if (packet instanceof Message) {
-                        org.xmpp.packet.Message.Type type = ((Message) packet).getType();
-                        switch (type) {
-                            case normal:
-                                break;
-                            case chat:
-                                break;
-                            case groupchat:
-                                break;
-                            case headline:
-                                break;
-                            case error:
-                                break;
-                        }
-                        // Echo back to sender
-                        packet.setTo(packet.getFrom());
-                        bot.sendPacket(packet);
-                    } else if (packet instanceof Presence) {
-                        // Echo back to sender
-                        Presence presence = new Presence();
-                        presence.setStatus("Online");
-                        presence.setTo(packet.getFrom());
-                        bot.sendPacket(packet);
-                    }
-                }
-            }
-            public void processIncomingRaw(String rawText) { };
-
-            public void terminate() { };
-        };
-
-        BotzConnection bot = new BotzConnection(packetReceiver);
+        enabled = JiveGlobals.getBooleanProperty("chatbot.enabled", true);
+        bot = new BotzConnection(new ChatBotzPacketReceiver(this));
         try {
             // Create user and login
             bot.login(Constants.CHATBOT_USERNAME);
-
-            botzJid = new JID(bot.getUsername(), bot.getHostName(), bot.getResource());
             {
                 IQ iq = new IQ();
                 iq.setTo(domain);
@@ -178,14 +134,15 @@ public class OllamaChatbotPlugin implements Plugin, PropertyEventListener, MUCEv
             Log.error( "An exception occurred while trying to unload the OllamaChatbot.", ex );
         }
         CacheFactory.destroyCache(Constants.CHATBOT_LLM_CACHE_NAME);
+        if (bot != null){
+            bot.close();
+        }
         model = null;
         mucManager = null;
         userManager = null;
         conversationManager = null;
         plugin = null;
         pluginManager = null;
-        instance = null;
-
     }
 
     @Override
@@ -210,29 +167,30 @@ public class OllamaChatbotPlugin implements Plugin, PropertyEventListener, MUCEv
 
     }
 
+    private void updateCache(JID jid){
+        if(!cache.containsKey(jid)){
+            cache.put(jid,getMessages(jid));
+        }
+    }
+
     @Override
     public void roomCreated(JID jid) {
-        if(!cache.containsKey(jid)){
+        updateCache(jid);
+        final MUCRoom mucRoom = mucManager.getMultiUserChatService(jid).getChatRoom(jid.getNode());
 
-        }else {
-            PersistenceManager persistenceManager = plugin.getPersistenceManager(jid);
-            Collection<Conversation> conversations = persistenceManager.findConversations(null, null, null, jid, null);
-            Collection<ArchivedMessage> messages = conversations.stream().flatMap( conversation -> conversation.getMessages().stream())
-                    .collect(Collectors.toList());
+        boolean isOccupant = mucRoom.getOccupants().stream().anyMatch(role -> role.getUserAddress().getNode().equals(model.getAlias()));
+
+        if(!isOccupant){
+            Presence presence = new Presence();
+            presence.setTo(jid);
+            presence.addChildElement("x", "http://jabber.org/protocol/muc");
+            bot.sendPacket(presence);
         }
-        MultiUserChatService service = mucManager.getMultiUserChatService(jid);
-        try {
-            MUCRoom room = service.getChatRoom(jid.getNode(),botzJid);
-
-        } catch (NotAllowedException e) {
-            throw new RuntimeException(e);
-        }
-
     }
 
     @Override
     public void roomDestroyed(JID jid) {
-
+        cache.remove(jid);
     }
 
     @Override
@@ -251,22 +209,51 @@ public class OllamaChatbotPlugin implements Plugin, PropertyEventListener, MUCEv
     }
 
     @Override
-    public void nicknameChanged(JID jid, JID jid1, String s, String s1) {
+    public void nicknameChanged(JID roomJID, JID userJID, String oldNickname, String newNickname) {
 
     }
 
     @Override
-    public void messageReceived(JID jid, JID jid1, String s, Message message) {
+    public void messageReceived(JID roomJID, JID userJID, String nickname, org.xmpp.packet.Message message) {
+        updateCache(roomJID);
+        LinkedList<Message> messages = cache.get(roomJID);
+        messages.add(ChatbotPlugin.transform(roomJID, userJID, message));
+    }
+
+    public static Message transform(JID roomJID, JID userJID, org.xmpp.packet.Message message){
+        return new Message(roomJID.toString(), userJID, roomJID, botzJid.equals(userJID)? ChatMessageType.AI:ChatMessageType.USER, message.getBody());
+    }
+
+    private static Message transform(JID roomJID, ArchivedMessage message){
+        return new Message(roomJID.toString(), message.getFromJID(), message.getToJID(), botzJid.equals(message.getFromJID())? ChatMessageType.AI:ChatMessageType.USER, message.getBody());
+    }
+
+    @Override
+    public void privateMessageRecieved(JID toJID, JID fromJID, org.xmpp.packet.Message message) {
 
     }
 
     @Override
-    public void privateMessageRecieved(JID jid, JID jid1, Message message) {
+    public void roomSubjectChanged(JID roomJID, JID userJID, String newSubject) {
 
     }
 
-    @Override
-    public void roomSubjectChanged(JID jid, JID jid1, String s) {
+    public LinkedList<Message> getCachedMessages(JID jid){
+        updateCache(jid);
+        return cache.get(jid);
+    }
 
+    private LinkedList<Message> getMessages(JID jid) {
+        ArchiveSearch search = new ArchiveSearch();
+        search.setRoom(jid);
+        Collection<Conversation> conversations = archiveSearcher.search(search);
+        LinkedList<Message> msgs = (conversations != null) ? conversations.stream().flatMap(conversation -> conversation.getMessages(conversationManager).stream())
+                .map(archivedMessage -> transform(jid, archivedMessage)).collect(Collectors.toCollection(LinkedList::new))
+                : new LinkedList<Message>();
+        if(!StringUtils.isEmpty( model.getSystemPrompt())){
+            Message systemPrompt = new Message(jid.toString(), jid, jid, ChatMessageType.SYSTEM, model.getSystemPrompt());
+            msgs.addFirst(systemPrompt);
+        }
+        return msgs;
     }
 }

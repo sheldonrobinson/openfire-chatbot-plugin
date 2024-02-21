@@ -1,7 +1,7 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="java.util.*"  errorPage="error.jsp" %>
 <%@ page import="org.jivesoftware.openfire.*,org.jivesoftware.util.*" %>
-<%@ page import="ia.konnekted.konstrukt.ofkhatbot.OllamaChatbotPlugin" %>
+<%@ page import="ia.konnekted.konstrukt.ofkhatbot.ChatbotPlugin" %>
 <%@ page import="ia.konnekted.konstrukt.ofkhatbot.Constants" %>
 <%@ page import="org.slf4j.Logger, org.slf4j.LoggerFactory" %>
 <%@ taglib uri="admin" prefix="admin" %>

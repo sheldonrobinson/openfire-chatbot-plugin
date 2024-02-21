@@ -5,10 +5,10 @@ import org.jivesoftware.util.JiveConstants;
 public class Constants {
     public static final String NAME = "chatbot";
     public static final String PLUGIN_NAME = "Chatbot";
-    public static final String CHATBOT_LLM_MODEL_DEFAULT = "llama2:13b";
+    public static final String CHATBOT_LLM_MODEL_DEFAULT = "mistral";
     public static final String CHATBOT_HOST_URL_DEFAULT = "http://localhost:11434";
     public static final String CHATBOT_ALIAS_DEFAULT = "Assistant";
-    public static final String CHATBOT_SYSTEM_PROMPT_DEFAULT = "Assistant";
+    public static final String CHATBOT_SYSTEM_PROMPT_DEFAULT = "You are a helpful assistant.";
     public static final String CHATBOT_LLM_FORMAT_DEFAULT = "json";
     public static final double CHATBOT_LLM_TEMPERATURE_DEFAULT = 0.5;
     public static final int CHATBOT_LLM_TOP_K_DEFAULT = 40;

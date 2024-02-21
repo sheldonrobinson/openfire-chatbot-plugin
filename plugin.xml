@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <plugin>
-    <author>Ignite Realtime</author>
-    <class>ia.konnekted.konstrukt.ofkhatbot.LLaMA</class>
+    <author>Sheldon Robinson</author>
+    <class>ia.konnekted.konstrukt.ofkhatbot.ChatbotPlugin</class>
     <name>${project.name}</name>
     <description>${project.description}</description>
     <version>${project.version}</version>

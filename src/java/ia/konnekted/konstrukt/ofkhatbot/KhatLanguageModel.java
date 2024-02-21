@@ -16,14 +16,7 @@ import dev.langchain4j.model.ollama.OllamaChatModel;
 import org.jivesoftware.util.cache.ExternalizableUtil;
 
 @Value
-public class KhatLanguageModel implements Serializable, Cacheable {
+public class KhatLanguageModel {
     private ChatLanguageModel model;
-    @Override
-    public int getCachedSize() throws CannotCalculateSizeException {
-        int size = 0;
-        size += CacheSizes.sizeOfObject();
-        size += CacheSizes.sizeOfAnything(this.model);
-        return size;
-    }
 
 }
