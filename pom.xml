@@ -12,7 +12,7 @@
 
 	<groupId>ia.konnkted.konstrukt</groupId>
 	<artifactId>chatbot</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.0.6-SNAPSHOT</version>
 	<name>ChatBot</name>
 	<description>Chatbot for Openfire</description>
 
@@ -212,6 +212,14 @@
 		    <artifactId>json</artifactId>
 		    <version>20240205</version>
 		</dependency>
+
+
+		<dependency>
+			<groupId>org.jrobin</groupId>
+			<artifactId>jrobin</artifactId>
+			<version>1.6.0</version>
+		</dependency>
+
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>

@@ -13,13 +13,8 @@ import dev.langchain4j.data.message.ChatMessage;
 
 import java.io.Serializable;
 @Value
-@JiveID(11434)
 public class Message implements ChatMessage, Serializable, Cacheable {
-    static {
-        new SequenceManager(11434, 50);
-    }
 
-    private final long id;
     private final String thread;
     private final JID fromJID;
     private final JID toJID;
@@ -27,7 +22,6 @@ public class Message implements ChatMessage, Serializable, Cacheable {
     private final String body;
 
     public Message(String thread, JID fromJID, JID toJID, ChatMessageType  type, String body) {{
-        this.id = SequenceManager.nextID(this);
         this.thread = thread;
         this.fromJID = fromJID;
         this.toJID = toJID;
@@ -38,11 +32,10 @@ public class Message implements ChatMessage, Serializable, Cacheable {
     @Override
     public int getCachedSize() throws CannotCalculateSizeException {
         int size = 0;
-        size += CacheSizes.sizeOfLong();
-        size += CacheSizes.sizeOfAnything(type);
         size += CacheSizes.sizeOfString(thread);
         size += CacheSizes.sizeOfAnything(fromJID);
         size += CacheSizes.sizeOfAnything(toJID);
+        size += CacheSizes.sizeOfAnything(type);
         size += CacheSizes.sizeOfString(body);
         return size;
     }

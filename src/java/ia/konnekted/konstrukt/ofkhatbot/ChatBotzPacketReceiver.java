@@ -12,9 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xmpp.packet.JID;
 import org.xmpp.packet.Packet;
-import org.xmpp.packet.Presence;
 
-import java.net.UnknownHostException;
 import java.util.LinkedList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -24,13 +22,9 @@ import static dev.langchain4j.data.message.ChatMessageType.*;
 public class ChatBotzPacketReceiver implements BotzPacketReceiver {
 
     private static final Logger Log = LoggerFactory.getLogger(ChatBotzPacketReceiver.class);
-
     private ExecutorService executor;
-    private JID botzJid = null;
-    private BotzConnection bot = null;
-
+    private BotzConnection bot;
     private final ChatbotPlugin plugin;
-
     private ChatLanguageModel chatLanguageModel;
 
     public ChatBotzPacketReceiver(ChatbotPlugin plugin) {
@@ -55,7 +49,7 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
     @Override
     public void processIncoming(Packet packet) {
         JID from = packet.getFrom();
-        if (plugin.isEnabled() && !this.getBotzJid().equals(from)) {
+        if (plugin.isEnabled() && !plugin.getBotzJid().equals(from)) {
             if (packet instanceof org.xmpp.packet.Message) {
                 org.xmpp.packet.Message.Type type = ((org.xmpp.packet.Message) packet).getType();
                 switch (type) {
@@ -75,12 +69,6 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                     case error:
                         break;
                 }
-            } else if (packet instanceof Presence) {
-                // Echo back to sender
-                Presence presence = new Presence();
-                presence.setStatus("Online");
-                presence.setTo(from);
-                bot.sendPacket(packet);
             }
         }
     }
@@ -92,7 +80,7 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                 plugin.sendChatState(message.getFrom(), ChatState.composing);
                 LinkedList<Message> messages = new LinkedList<>(plugin.getCachedMessages(message.getFrom()));
                 if(!messages.getLast().getType().equals(USER)){
-                    messages.add(ChatbotPlugin.transform(message.getTo(), message.getFrom(),message));
+                    messages.add(ChatbotPlugin.transform(plugin.getBotzJid(), message.getTo(), message.getFrom(),message));
                 }
                 Response<AiMessage> response = chatLanguageModel.generate(messages.toArray(new Message[0]));
                 org.xmpp.packet.Message newMessage = new org.xmpp.packet.Message();
@@ -115,7 +103,7 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                 if (!StringUtils.isEmpty(plugin.getModel().getSystemPrompt())) {
                     messages.addFirst(new Message(message.getTo().toString(), message.getFrom(), message.getTo(), SYSTEM, plugin.getModel().getSystemPrompt()));
                 }
-                messages.add(ChatbotPlugin.transform(message.getTo(), message.getFrom(),message));
+                messages.add(ChatbotPlugin.transform(plugin.getBotzJid(), message.getTo(), message.getFrom(),message));
                 Response<AiMessage> response = chatLanguageModel.generate(messages.toArray(new Message[0]));
                 org.xmpp.packet.Message newMessage = new org.xmpp.packet.Message();
                 newMessage.setType(org.xmpp.packet.Message.Type.chat);
@@ -128,34 +116,22 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
         });
     }
 
-
-
-
     @Override
     public void processIncomingRaw(String s) {
 
     }
 
-    public JID getBotzJid() {
-        if(botzJid == null){
-            try {
-                botzJid = new JID(bot.getUsername(), bot.getHostName(), bot.getResource());
-            } catch (UnknownHostException e) {
-                Log.info("Unable to determine hostname", e);
-            }
-        }
-        return botzJid;
-    }
-
     @Override
     public void terminate() {
         if (executor != null) {
-            executor.shutdown();
+            try {
+                executor.shutdown();
+            }catch (Exception e){
+                Log.info("Unable to shutdown executor service", e);
+            } finally {
+                executor = null;
+            }
         }
-        if(bot.isLoggedOn()){
-            bot.logout();
-        }
-        botzJid = null;
     }
 
 }

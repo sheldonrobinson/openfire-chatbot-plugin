@@ -10,7 +10,6 @@ import org.jivesoftware.openfire.container.Plugin;
 import org.jivesoftware.openfire.container.PluginManager;
 import org.jivesoftware.openfire.muc.*;
 import org.jivesoftware.openfire.plugin.MonitoringPlugin;
-import org.jivesoftware.openfire.user.UserManager;
 import org.jivesoftware.util.JiveGlobals;
 import org.jivesoftware.util.PropertyEventDispatcher;
 import org.jivesoftware.util.PropertyEventListener;
@@ -22,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import org.xmpp.packet.*;
 
 import java.io.File;
+import java.net.UnknownHostException;
 import java.util.Map;
 import java.util.LinkedList;
 import java.util.stream.Collectors;
@@ -32,21 +32,30 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
     private static final Logger Log = LoggerFactory.getLogger(ChatbotPlugin.class);
     private static final String domain = XMPPServer.getInstance().getServerInfo().getXMPPDomain();
     private static final String hostname = XMPPServer.getInstance().getServerInfo().getHostname();
-
     private MultiUserChatManager mucManager;
-    private UserManager userManager;
-    private PluginManager pluginManager;
-
     private BotzConnection bot;
     private ConversationManager conversationManager;
     private ArchiveSearcher archiveSearcher;
     private MonitoringPlugin plugin;
+    private final Cache<JID, LinkedList<Message>> cache = CacheFactory.createCache(Constants.CHATBOT_LLM_CACHE_NAME);
+    private ChatModelSettings model;
+    private JID botzJid;
+    private boolean enabled;
+
+    public JID getBotzJid() {
+        if(botzJid == null){
+            try {
+                botzJid = new JID(bot.getUsername(), bot.getHostName(), bot.getResource());
+            } catch (UnknownHostException e) {
+                Log.info("Unable to determine hostname", e);
+            }
+        }
+        return botzJid;
+    }
 
     public boolean isEnabled() {
         return enabled;
     }
-
-    private boolean enabled;
 
     public Cache<JID, LinkedList<Message>> getCache() {
         return cache;
@@ -56,20 +65,12 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
         return model;
     }
 
-    private final Cache<JID, LinkedList<Message>> cache = CacheFactory.createCache(Constants.CHATBOT_LLM_CACHE_NAME);
-
-    private ChatModelSettings model;
-
-    private static JID botzJid;
-
     public ChatbotPlugin(){
-        userManager = XMPPServer.getInstance().getUserManager();
         mucManager = XMPPServer.getInstance().getMultiUserChatManager();
     }
 
     @Override
     public void initializePlugin(PluginManager pluginManager, File file) {
-        pluginManager = pluginManager;
         model = ChatModelSettings.builder()
                 .alias(JiveGlobals.getProperty("chatbot.alias",Constants.CHATBOT_ALIAS_DEFAULT))
                 .model(JiveGlobals.getProperty("chatbot.llm.model",Constants.CHATBOT_LLM_MODEL_DEFAULT))
@@ -86,25 +87,36 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
         enabled = JiveGlobals.getBooleanProperty("chatbot.enabled", true);
         bot = new BotzConnection(new ChatBotzPacketReceiver(this));
         try {
+            botzJid = new JID(bot.getUsername(), bot.getHostName(), bot.getResource());
+        } catch (UnknownHostException e) {
+            Log.info("Unable to set botz JID", e);
+        }
+        try {
             // Create user and login
             bot.login(Constants.CHATBOT_USERNAME);
-            {
-                IQ iq = new IQ();
-                iq.setTo(domain);
-                iq.setType(IQ.Type.set);
+        }catch (Exception e) {
+            Log.info("Failed login", e);
+        }
+         try {
+            IQ iq = new IQ();
+            iq.setTo(domain);
+            iq.setType(IQ.Type.set);
 
-                Element child = iq.setChildElement("vCard", "vcard-temp");
-                child.addElement("FN").setText(model.getAlias());
-                child.addElement("NICKNAME").setText(model.getAlias());
+            Element child = iq.setChildElement("vCard", "vcard-temp");
+            child.addElement("FN").setText(model.getAlias());
+            child.addElement("NICKNAME").setText(model.getAlias());
 
-                bot.sendPacket(iq);
+            bot.sendPacket(iq);
 
-            }
+         } catch (Exception e) {
+             Log.info("Failed to set nickname", e);
+         }
+         try {
             Presence presence = new Presence();
             presence.setStatus("Online");
             bot.sendPacket(presence);
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.info("Failed set Presence to Online", e);
         }
 
         cache.setMaxCacheSize(JiveGlobals.getLongProperty("chatbot.model.cache.size",Constants.CHATBOT_MODEL_CACHE_SIZE_DEFAULT));
@@ -126,22 +138,31 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
         try
         {
             PropertyEventDispatcher.removeListener( this );
+        }catch ( Exception ex ){
+            Log.info( "An exception occurred while trying to unload Chatbot PropertyListener.", ex );
+        }
+        try {
             MUCEventDispatcher.removeListener(this);
+        } catch ( Exception ex ){
+            Log.info( "An exception occurred while trying to unload Chatbot MUCEventListener.", ex );
         }
-        catch ( Exception ex )
-        {
-            Log.error( "An exception occurred while trying to unload the OllamaChatbot.", ex );
+        try {
+            CacheFactory.destroyCache(Constants.CHATBOT_LLM_CACHE_NAME);
+        }catch (Exception e){
+            Log.info("An exception occurred while trying to destroy the Chatbot cache.", e);
         }
-        CacheFactory.destroyCache(Constants.CHATBOT_LLM_CACHE_NAME);
-        if (bot != null){
-            bot.close();
+        try {
+            bot.logout();
+        }catch ( Exception e){
+            Log.info("An exception occurred while trying to close the bot.", e);
+        } finally {
+            bot = null;
         }
+
         model = null;
         mucManager = null;
-        userManager = null;
         conversationManager = null;
         plugin = null;
-        pluginManager = null;
     }
 
     @Override
@@ -217,14 +238,14 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
     public void messageReceived(JID roomJID, JID userJID, String nickname, org.xmpp.packet.Message message) {
         updateCache(roomJID);
         LinkedList<Message> messages = cache.get(roomJID);
-        messages.add(ChatbotPlugin.transform(roomJID, userJID, message));
+        messages.add(ChatbotPlugin.transform(botzJid, roomJID, userJID, message));
     }
 
-    public static Message transform(JID roomJID, JID userJID, org.xmpp.packet.Message message){
+    public static Message transform(JID botzJid, JID roomJID, JID userJID, org.xmpp.packet.Message message){
         return new Message(roomJID.toString(), userJID, roomJID, botzJid.equals(userJID)? ChatMessageType.AI:ChatMessageType.USER, message.getBody());
     }
 
-    private static Message transform(JID roomJID, ArchivedMessage message){
+    private static Message transform(JID botzJid, JID roomJID, ArchivedMessage message){
         return new Message(roomJID.toString(), message.getFromJID(), message.getToJID(), botzJid.equals(message.getFromJID())? ChatMessageType.AI:ChatMessageType.USER, message.getBody());
     }
 
@@ -259,7 +280,7 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
         LinkedList<Message> msgs = (conversations != null) ? conversations.stream()
                 .flatMap(conversation -> conversation.getMessages(conversationManager).stream())
                 .filter(message -> !StringUtils.isEmpty(message.getBody()))
-                .map(archivedMessage -> transform(jid, archivedMessage))
+                .map(archivedMessage -> transform(botzJid, jid, archivedMessage))
                 .collect(Collectors.toCollection(LinkedList::new))
                 : new LinkedList<Message>();
         if(!StringUtils.isEmpty( model.getSystemPrompt())){
