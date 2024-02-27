@@ -1,6 +1,10 @@
 package ia.konnekted.konstrukt.ofkhatbot;
 
+import org.apache.commons.io.IOUtils;
 import org.jivesoftware.util.JiveConstants;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 public class Constants {
     public static final String NAME = "chatbot";
@@ -17,7 +21,17 @@ public class Constants {
     public static final int CHATBOT_LLM_PREDICTIONS_DEFAULT = -2;
     public static final String CHATBOT_USERNAME = "assistant";
     public static final String CHATBOT_NICKNAME = "Assistant";
-    public static final String CHATBOT_LLM_CACHE_NAME = "Chatbot Models";
+    public static final String CHATBOT_LLM_CACHE_NAME = "Chatbot Messages";
     public static final long CHATBOT_MODEL_CACHE_SIZE_DEFAULT = 128*1024*1024L;
     public static final long CHATBOT_MODEL_CACHE_LIFETIME_DEFAULT = 8 * JiveConstants.HOUR;
+
+    public static final String CHATBOT_AVATAR_IMAGE; //System.class.getResource("/chatbot-avatar.txt").;
+
+    static {
+        try {
+            CHATBOT_AVATAR_IMAGE = IOUtils.resourceToString("/images/chatbot-avatar.txt", StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }
