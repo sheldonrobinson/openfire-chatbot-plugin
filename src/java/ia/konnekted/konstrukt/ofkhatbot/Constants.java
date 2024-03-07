@@ -28,10 +28,14 @@ public class Constants {
     public static final String CHATBOT_AVATAR_IMAGE; //System.class.getResource("/chatbot-avatar.txt").;
 
     static {
+        String chatbotAvatarImage;
         try {
-            CHATBOT_AVATAR_IMAGE = IOUtils.resourceToString("/images/chatbot-avatar.txt", StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+            chatbotAvatarImage = IOUtils.resourceToString("images/chatbot-avatar.txt", StandardCharsets.US_ASCII, Constants.class.getClassLoader());
+            // chatbotAvatarImage = new String(Constants.class.getClassLoader().getResourceAsStream("images/chatbot-avatar.txt").readAllBytes());
+        } catch (IOException | OutOfMemoryError e) {
+            chatbotAvatarImage = null;
+            e.printStackTrace();
         }
+        CHATBOT_AVATAR_IMAGE = chatbotAvatarImage;
     }
 }

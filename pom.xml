@@ -12,7 +12,7 @@
 
 	<groupId>ia.konnkted.konstrukt</groupId>
 	<artifactId>chatbot</artifactId>
-	<version>0.0.28-SNAPSHOT</version>
+	<version>0.0.39-SNAPSHOT</version>
 	<name>ChatBot</name>
 	<description>Chatbot for Openfire</description>
 
@@ -148,6 +148,14 @@
 					<tokenAuth>true</tokenAuth>
 				</configuration>
 			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<source>9</source>
+					<target>9</target>
+				</configuration>
+			</plugin>
 		</plugins>
 	</build>
 	<distributionManagement>
@@ -206,6 +214,12 @@
 			<groupId>dev.langchain4j</groupId>
 			<artifactId>langchain4j-document-parser-apache-poi</artifactId>
 			<version>${langchain4j.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>io.github.amithkoujalgi</groupId>
+			<artifactId>ollama4j</artifactId>
+			<version>1.0.57</version>
 		</dependency>
 
 		<dependency>

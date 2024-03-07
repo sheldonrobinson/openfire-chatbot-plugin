@@ -107,7 +107,7 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
             Element child = iq.setChildElement("vCard", "vcard-temp");
             child.addElement("N").setText(model.getAlias());
             child.addElement("FN").setText(model.getAlias());
-            child.addElement("NICKNAME").setText(model.getAlias());
+            child.addElement("NICKNAME").setText(Constants.CHATBOT_NICKNAME);
 
             if(!StringUtils.isEmpty(Constants.CHATBOT_AVATAR_IMAGE)){
                 Element photo = child.addElement("PHOTO");
@@ -217,7 +217,7 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
     }
 
     private void updateCache(JID jid){
-        System.out.printf("ChatbotPlugin:updateCache %s\n", jid.asBareJID());
+        System.out.printf("ChatbotPlugin:updateCache<BEGIN> %s\n", jid.asBareJID());
         if(!cache.containsKey(jid.asBareJID())){
             cache.put(jid.asBareJID(),getMessages(jid));
         }
@@ -230,7 +230,7 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
 
     @Override
     public void roomCreated(JID jid) {
-        System.out.printf("ChatbotPlugin:roomCreated %s\n", jid);
+        System.out.printf("ChatbotPlugin:roomCreated<BEGIN> %s\n", jid);
         updateCache(jid);
         final MultiUserChatService service = mucManager.getMultiUserChatService(jid);
         final MUCRoom mucRoom = service.getChatRoom(jid.getNode());
@@ -251,21 +251,22 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
             }
             Lock lock = service.getChatRoomLock(jid.getNode());
             if(!isMember(mucRoom)) {
-                MUCRole botzRole = new MUCRole(mucRoom, model.getAlias(), MUCRole.Role.participant, MUCRole.Affiliation.member, getBotzJid(), roomPresence);
+                // MUCRole botzRole = new MUCRole(mucRoom, model.getAlias(), MUCRole.Role.participant, MUCRole.Affiliation.member, getBotzJid(), roomPresence);
+                MUCRole adminRole = new MUCRole(mucRoom, mucRoom.getName(), MUCRole.Role.participant, MUCRole.Affiliation.admin, jid, roomPresence);
                 try {
                     lock.lock();
                     System.out.printf("Adding member %s to room %s\n", botzJid, mucRoom);
-                    mucRoom.addMember(botzJid, model.getAlias(), botzRole);
+                    mucRoom.addMember(botzJid, model.getAlias(), adminRole);
                 } catch (Exception e) {
-                    System.out.printf("Failed to add member to %s with role %s\n", mucRoom, botzRole);
+                    System.out.printf("Failed to add member to %s with role %s\n", mucRoom, adminRole);
                     e.printStackTrace();
-                    Log.info(String.format("Failed to add member %s with role %s", botzJid, botzRole), e);
+                    Log.info(String.format("Failed to add member %s with role %s", botzJid, adminRole), e);
                 } finally {
                     lock.unlock();
                     try {
                         sleep(100L);
                     } catch (InterruptedException e) {
-
+                        e.printStackTrace();
                     }
                 }
             }
@@ -282,17 +283,19 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
                 try {
                     sleep(100L);
                 } catch (InterruptedException e) {
-
+                    e.printStackTrace();
                 }
             }
             service.syncChatRoom(mucRoom);
         }
+        System.out.printf("ChatbotPlugin:roomCreated<END> %s\n", jid);
     }
 
     @Override
     public void roomDestroyed(JID jid) {
-        System.out.printf("Destroyed room %s\n", jid);
+        System.out.printf("ChatbotPlugin:roomDestroyed<BEGIN> %s\n", jid);
         cache.remove(jid.asBareJID());
+        System.out.printf("ChatbotPlugin:roomDestroyed<END> %s\n", jid);
     }
 
     @Override
@@ -317,32 +320,35 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
 
     @Override
     public void messageReceived(JID roomJID, JID userJID, String nickname, org.xmpp.packet.Message message) {
-        System.out.printf("ChatbotPlugin:messageReceived room=%s, user=%s, mick=%s,%s\n", roomJID, userJID, nickname, message);
+        System.out.printf("ChatbotPlugin:messageReceived<BEGIN> room=%s, user=%s, mick=%s\n%s\n", roomJID, userJID, nickname, message);
         final MultiUserChatService service = mucManager.getMultiUserChatService(roomJID);
         final MUCRoom mucRoom = service.getChatRoom(roomJID.getNode());
-        System.out.printf("messageReceived:hasOccupant %s, %s\n", getBotzJid(), mucRoom.hasOccupant(getBotzJid()));
-        if(mucRoom.hasOccupant(getBotzJid())){
+        // System.out.printf("messageReceived:hasOccupant %s, %s\n", getBotzJid(), mucRoom.hasOccupant(getBotzJid()));
+        if(!StringUtils.isEmpty(message.getBody()) && mucRoom.hasOccupant(getBotzJid())){
             updateCache(roomJID);
             LinkedList<Message> messages = cache.get(roomJID.asBareJID());
             if(!userJID.equals(getBotzJid())){
                 if(!messages.getLast().getType().equals(ChatMessageType.USER)){
+                    System.out.printf("Adding USER message to cache");
                     messages.add(ChatbotPlugin.transform(getBotzJid(), roomJID, userJID, message));
                 }
                 System.out.printf("ChatbotPlugin:messageReceived-add-user-message: %s\n", messages);
                 try {
                     bot.deliver(message);
                 } catch (Exception e) {
-                    System.out.printf("Failed to deliver message %s\n", message);
+                    System.out.printf("messageReceived: Failed to deliver message %s\n", message);
                     e.printStackTrace();
                     Log.info(String.format("Failed to deliver message %s\n", message), e);
                 }
             } else {
                 if(!messages.getLast().getType().equals(ChatMessageType.AI)){
+                    System.out.printf("Adding AI message to cache");
                     messages.add(ChatbotPlugin.transform(getBotzJid(), roomJID, userJID, message));
                 }
                 System.out.printf("ChatbotPlugin:messageReceived-add-ai-message: %s\n", messages);
             }
         }
+        System.out.printf("ChatbotPlugin:messageReceived<END> room=%s, user=%s, mick=%s\n", roomJID, userJID, nickname);
     }
 
     public static Message transform(JID botzJid, JID roomJID, JID userJID, org.xmpp.packet.Message message){
@@ -355,7 +361,17 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
 
     @Override
     public void privateMessageRecieved(JID toJID, JID fromJID, org.xmpp.packet.Message message) {
-
+        System.out.printf("ChatbotPlugin:privateMessageRecieved<BEGIN> to=%s, from=%s\n%s\n", toJID, fromJID, message);
+        if(!StringUtils.isEmpty(message.getBody()) && toJID.asBareJID().equals(getBotzJid().asBareJID())){
+            try {
+                bot.deliver(message);
+            } catch (Exception e) {
+                System.out.printf("privateMessageRecieved: Failed to deliver message %s\n", message);
+                e.printStackTrace();
+                Log.info(String.format("Failed to deliver message %s\n", message), e);
+            }
+        }
+        System.out.printf("ChatbotPlugin:privateMessageRecieved<END> to=%s, from=%s\n", toJID, fromJID);
     }
 
     @Override
@@ -387,15 +403,15 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
         ArchiveSearch search = new ArchiveSearch();
         search.setRoom(jid);
         Collection<Conversation> conversations = archiveSearcher.search(search);
-        LinkedList<Message> archivedNsgs = (conversations != null) ? conversations.stream()
+        LinkedList<Message> archivedMsgs = (conversations != null) ? conversations.stream()
                 .flatMap(conversation -> conversation.getMessages(conversationManager).stream())
                 .filter(message -> !StringUtils.isEmpty(message.getBody()))
                 .map(archivedMessage -> transform(botzJid, jid, archivedMessage))
                 .collect(Collectors.toCollection(LinkedList::new))
                 : new LinkedList<Message>();
-        msgs.addAll(archivedNsgs);
-
-        System.out.printf("<END>ChatbotPlugin:getMessages<END> %s\n", msgs);
+        msgs.addAll(archivedMsgs);
+        System.out.printf("ChatbotPlugin:getMessages:msgs\n%s\n", msgs);
+        System.out.printf("ChatbotPlugin:getMessages<END> %s\n", jid);
         return msgs;
     }
 

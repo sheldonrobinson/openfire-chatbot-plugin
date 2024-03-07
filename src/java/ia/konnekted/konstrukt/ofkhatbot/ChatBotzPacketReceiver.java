@@ -4,6 +4,9 @@ import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.ollama.OllamaChatModel;
 import dev.langchain4j.model.output.Response;
+import io.github.amithkoujalgi.ollama4j.core.OllamaAPI;
+import io.github.amithkoujalgi.ollama4j.core.exceptions.OllamaBaseException;
+import io.github.amithkoujalgi.ollama4j.core.models.Model;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -19,7 +22,9 @@ import org.xmpp.packet.JID;
 import org.xmpp.packet.Packet;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -54,6 +59,21 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
     }
 
     private void preloadModel(){
+        System.out.printf("ChatBotzPacketReceiver:preloadModel<BEGIN>\n");
+
+        OllamaAPI ollamaAPI = plugin.getModel().getUrl().startsWith("http") ? new OllamaAPI(plugin.getModel().getUrl()) : new OllamaAPI("http://"+plugin.getModel().getUrl());
+
+        try {
+            List<Model> models = ollamaAPI.listModels();
+            boolean found = models.stream().anyMatch(model -> { return model.getModelName().startsWith(plugin.getModel().getModel());});
+            if (!found) {
+                ollamaAPI.pullModel(plugin.getModel().getModel());
+            }
+        } catch (OllamaBaseException | IOException | InterruptedException | URISyntaxException e) {
+            e.printStackTrace();
+        }
+
+        /*
         final MediaType JSON
                 = MediaType.parse("application/json; charset=utf-8");
         OkHttpClient client = new OkHttpClient();
@@ -65,8 +85,8 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                 .url(url)
                 .post(body)
                 .build();
-        try {
-            okhttp3.Response response = client.newCall(request).execute();
+        try(okhttp3.Response response = client.newCall(request).execute()) {
+            Log.info(String.format("Response for %s : %d\n", url, response.code()));
         } catch (Exception e) {
             Log.info(String.format("Failed to request %s\n", request), e);
         }
@@ -78,21 +98,22 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                 .post(body)
                 .build();
 
-        try {
-            okhttp3.Response response = client.newCall(request).execute();
+        try (okhttp3.Response response = client.newCall(request).execute()) {
+            Log.info(String.format("Response for %s : %d\n", url, response.code()));
         } catch (Exception e) {
             Log.info(String.format("Failed to request %s\n", request), e);
-        }
+        } */
+        System.out.printf("ChatBotzPacketReceiver:preloadModel<END>\n");
     }
 
     @Override
     public void processIncoming(Packet packet) {
+        System.out.printf("ChatBotzPacketReceiver:processIncoming<BEGIN>\n%s\n", packet);
         JID from = packet.getFrom();
-        System.out.printf("ChatBotzPacketReceiver:processIncoming:Packet: %s\n", packet);
         if (plugin.isEnabled() && !plugin.getBotzJid().equals(from)) { //
-            System.out.printf("ChatBotzPacketReceiver:processIncoming:User: %s\n", packet);
+            System.out.println("ChatBotzPacketReceiver:processIncoming:User");
             if (packet instanceof org.xmpp.packet.Message && !StringUtils.isEmpty(((org.xmpp.packet.Message) packet).getBody())) {
-                System.out.printf("ChatBotzPacketReceiver:processIncoming:Message: %s\n", (org.xmpp.packet.Message) packet);
+                System.out.println("ChatBotzPacketReceiver:processIncoming:Message");
                 org.xmpp.packet.Message.Type type = ((org.xmpp.packet.Message) packet).getType();
                 System.out.printf("ChatBotzPacketReceiver:processIncoming:type: %s\n", type);
                 switch (type) {
@@ -111,17 +132,16 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                     case error:
                         break;
                 }
-            } else {
-                System.out.printf("ChatBotzPacketReceiver:out:Packet: %s\n", packet);
             }
         }
+        System.out.println("ChatBotzPacketReceiver:processIncoming<END>");
     }
 
     private void converse(org.xmpp.packet.Message message) {
         executor.execute(new Runnable() {
             @Override
             public void run() {
-                System.out.printf("ChatBotzPacketReceiver:converse %s\n", message);
+                System.out.printf("ChatBotzPacketReceiver:converse<BEGIN>\n%s\n", message);
                 plugin.sendChatState(message.getFrom(), ChatState.composing);
                 LinkedList<Message> messages = new LinkedList<>(plugin.getCachedMessages(message.getFrom()));
 
@@ -138,9 +158,8 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                     newMessage.setThread(message.getThread());
                 }
                 newMessage.setBody(response.content().text());
-                System.out.printf("ChatBotzPacketReceiver:converse-message: %s\n", newMessage);
                 bot.sendPacket(newMessage);
-                // plugin.sendChatState(message.getFrom(), ChatState.active);
+                System.out.printf("ChatBotzPacketReceiver:converse<END>\n%s\n", newMessage);
             }
         });
     }
@@ -149,7 +168,7 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
         executor.execute(new Runnable() {
             @Override
             public void run() {
-                System.out.printf("ChatBotzPacketReceiver:respond %s\n", message);
+                System.out.printf("ChatBotzPacketReceiver:respond<BEGIN>\n%s\n", message);
                 plugin.sendChatState(message.getFrom(), ChatState.composing);
                 LinkedList<Message> messages = new LinkedList<>();
                 if (!StringUtils.isEmpty(plugin.getModel().getSystemPrompt())) {
@@ -164,9 +183,8 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                 newMessage.setTo(message.getFrom());
                 newMessage.setThread(message.getThread());
                 newMessage.setBody(response.content().text());
-                System.out.printf("ChatBotzPacketReceiver:respond-message: %s\n", newMessage);
                 bot.sendPacket(newMessage);
-                plugin.sendChatState(message.getFrom(), ChatState.active);
+                System.out.printf("ChatBotzPacketReceiver:respond<END>\n%s\n", newMessage);
             }
         });
     }
