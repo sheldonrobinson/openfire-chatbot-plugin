@@ -1,17 +1,15 @@
 package ia.konnekted.konstrukt.ofkhatbot;
 
-import dev.langchain4j.data.message.ChatMessageType;
+import io.github.amithkoujalgi.ollama4j.core.models.chat.OllamaChatMessageRole;
 import org.apache.commons.lang3.StringUtils;
 import org.dom4j.Element;
 import org.igniterealtime.openfire.botz.BotzConnection;
 import org.jivesoftware.openfire.XMPPServer;
 import org.jivesoftware.openfire.archive.*;
-import org.jivesoftware.openfire.auth.UnauthorizedException;
 import org.jivesoftware.openfire.container.Plugin;
 import org.jivesoftware.openfire.container.PluginManager;
 import org.jivesoftware.openfire.muc.*;
 import org.jivesoftware.openfire.plugin.MonitoringPlugin;
-import org.jivesoftware.openfire.user.UserAlreadyExistsException;
 import org.jivesoftware.util.JiveGlobals;
 import org.jivesoftware.util.PropertyEventDispatcher;
 import org.jivesoftware.util.PropertyEventListener;
@@ -23,7 +21,6 @@ import org.slf4j.LoggerFactory;
 import org.xmpp.packet.*;
 
 import java.io.File;
-import java.net.UnknownHostException;
 import java.util.Map;
 import java.util.LinkedList;
 import java.util.concurrent.locks.Lock;
@@ -216,12 +213,9 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
 
     }
 
-    private void updateCache(JID jid){
-        System.out.printf("ChatbotPlugin:updateCache<BEGIN> %s\n", jid.asBareJID());
-        if(!cache.containsKey(jid.asBareJID())){
-            cache.put(jid.asBareJID(),getMessages(jid));
-        }
-        System.out.printf("<END>ChatbotPlugin:updateCache<END> %s\n", jid.asBareJID());
+    public LinkedList<Message> updateCache(JID jid, LinkedList<Message> messages){
+        System.out.printf("ChatbotPlugin:updateCache %s\n", jid.asBareJID());
+        return cache.put(jid.asBareJID(), messages);
     }
 
     private boolean isMember(MUCRoom mucRoom){
@@ -231,7 +225,7 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
     @Override
     public void roomCreated(JID jid) {
         System.out.printf("ChatbotPlugin:roomCreated<BEGIN> %s\n", jid);
-        updateCache(jid);
+        updateCache(jid, getMessages(jid));
         final MultiUserChatService service = mucManager.getMultiUserChatService(jid);
         final MUCRoom mucRoom = service.getChatRoom(jid.getNode());
 
@@ -320,58 +314,18 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
 
     @Override
     public void messageReceived(JID roomJID, JID userJID, String nickname, org.xmpp.packet.Message message) {
-        System.out.printf("ChatbotPlugin:messageReceived<BEGIN> room=%s, user=%s, mick=%s\n%s\n", roomJID, userJID, nickname, message);
-        final MultiUserChatService service = mucManager.getMultiUserChatService(roomJID);
-        final MUCRoom mucRoom = service.getChatRoom(roomJID.getNode());
-        // System.out.printf("messageReceived:hasOccupant %s, %s\n", getBotzJid(), mucRoom.hasOccupant(getBotzJid()));
-        if(!StringUtils.isEmpty(message.getBody()) && mucRoom.hasOccupant(getBotzJid())){
-            updateCache(roomJID);
-            LinkedList<Message> messages = cache.get(roomJID.asBareJID());
-            if(!userJID.equals(getBotzJid())){
-                if(!messages.getLast().getType().equals(ChatMessageType.USER)){
-                    System.out.printf("Adding USER message to cache");
-                    messages.add(ChatbotPlugin.transform(getBotzJid(), roomJID, userJID, message));
-                }
-                System.out.printf("ChatbotPlugin:messageReceived-add-user-message: %s\n", messages);
-                try {
-                    bot.deliver(message);
-                } catch (Exception e) {
-                    System.out.printf("messageReceived: Failed to deliver message %s\n", message);
-                    e.printStackTrace();
-                    Log.info(String.format("Failed to deliver message %s\n", message), e);
-                }
-            } else {
-                if(!messages.getLast().getType().equals(ChatMessageType.AI)){
-                    System.out.printf("Adding AI message to cache");
-                    messages.add(ChatbotPlugin.transform(getBotzJid(), roomJID, userJID, message));
-                }
-                System.out.printf("ChatbotPlugin:messageReceived-add-ai-message: %s\n", messages);
-            }
-        }
-        System.out.printf("ChatbotPlugin:messageReceived<END> room=%s, user=%s, mick=%s\n", roomJID, userJID, nickname);
     }
 
     public static Message transform(JID botzJid, JID roomJID, JID userJID, org.xmpp.packet.Message message){
-        return new Message(roomJID.asBareJID().toString(), userJID, roomJID, botzJid.equals(userJID)? ChatMessageType.AI:ChatMessageType.USER, message.getBody());
+        return new Message(botzJid.asBareJID().equals(message.getFrom().asBareJID())?OllamaChatMessageRole.ASSISTANT:OllamaChatMessageRole.USER, message.getBody());
     }
 
     private static Message transform(JID botzJid, JID roomJID, ArchivedMessage message){
-        return new Message(roomJID.asBareJID().toString(), message.getFromJID(), message.getToJID(), botzJid.equals(message.getFromJID())? ChatMessageType.AI:ChatMessageType.USER, message.getBody());
+        return new Message(botzJid.asBareJID().equals(message.getFromJID().asBareJID())? OllamaChatMessageRole.ASSISTANT:OllamaChatMessageRole.USER, message.getBody());
     }
 
     @Override
     public void privateMessageRecieved(JID toJID, JID fromJID, org.xmpp.packet.Message message) {
-        System.out.printf("ChatbotPlugin:privateMessageRecieved<BEGIN> to=%s, from=%s\n%s\n", toJID, fromJID, message);
-        if(!StringUtils.isEmpty(message.getBody()) && toJID.asBareJID().equals(getBotzJid().asBareJID())){
-            try {
-                bot.deliver(message);
-            } catch (Exception e) {
-                System.out.printf("privateMessageRecieved: Failed to deliver message %s\n", message);
-                e.printStackTrace();
-                Log.info(String.format("Failed to deliver message %s\n", message), e);
-            }
-        }
-        System.out.printf("ChatbotPlugin:privateMessageRecieved<END> to=%s, from=%s\n", toJID, fromJID);
     }
 
     @Override
@@ -380,7 +334,9 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
     }
 
     public LinkedList<Message> getCachedMessages(JID jid){
-        updateCache(jid.asBareJID());
+        if(!cache.containsKey(jid.asBareJID())){
+            updateCache(jid, getMessages(jid));
+        }
         return cache.get(jid.asBareJID());
     }
 
@@ -397,7 +353,7 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
         System.out.printf("ChatbotPlugin:getMessages %s\n", jid);
         LinkedList<Message> msgs = new LinkedList<Message>();
         if(!StringUtils.isEmpty( model.getSystemPrompt())){
-            Message systemPrompt = new Message(jid.asBareJID().toString(), jid, jid, ChatMessageType.SYSTEM, model.getSystemPrompt());
+            Message systemPrompt = new Message(OllamaChatMessageRole.SYSTEM, model.getSystemPrompt());
             msgs.add(systemPrompt);
         }
         ArchiveSearch search = new ArchiveSearch();
@@ -406,7 +362,7 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
         LinkedList<Message> archivedMsgs = (conversations != null) ? conversations.stream()
                 .flatMap(conversation -> conversation.getMessages(conversationManager).stream())
                 .filter(message -> !StringUtils.isEmpty(message.getBody()))
-                .map(archivedMessage -> transform(botzJid, jid, archivedMessage))
+                .map(archivedMessage -> new Message(archivedMessage.getFromJID().asBareJID().equals(botzJid.asBareJID())?OllamaChatMessageRole.ASSISTANT: OllamaChatMessageRole.USER, archivedMessage.getBody()))
                 .collect(Collectors.toCollection(LinkedList::new))
                 : new LinkedList<Message>();
         msgs.addAll(archivedMsgs);

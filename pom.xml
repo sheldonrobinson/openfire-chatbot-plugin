@@ -12,7 +12,7 @@
 
 	<groupId>ia.konnkted.konstrukt</groupId>
 	<artifactId>chatbot</artifactId>
-	<version>0.0.39-SNAPSHOT</version>
+	<version>0.0.40-SNAPSHOT</version>
 	<name>ChatBot</name>
 	<description>Chatbot for Openfire</description>
 
@@ -184,36 +184,6 @@
 			<groupId>org.igniterealtime.openfire.botz</groupId>
 			<artifactId>botz</artifactId>
 			<version>1.2.0</version>
-		</dependency>
-
-		<dependency>
-			<groupId>dev.langchain4j</groupId>
-			<artifactId>langchain4j</artifactId>
-			<version>${langchain4j.version}</version>
-		</dependency>
-
-		<dependency>
-			<groupId>dev.langchain4j</groupId>
-			<artifactId>langchain4j-embeddings</artifactId>
-			<version>${langchain4j.version}</version>
-		</dependency>
-
-		<dependency>
-			<groupId>dev.langchain4j</groupId>
-			<artifactId>langchain4j-ollama</artifactId>
-			<version>${langchain4j.version}</version>
-		</dependency>
-
-		<dependency>
-			<groupId>dev.langchain4j</groupId>
-			<artifactId>langchain4j-document-parser-apache-pdfbox</artifactId>
-			<version>${langchain4j.version}</version>
-		</dependency>
-
-		<dependency>
-			<groupId>dev.langchain4j</groupId>
-			<artifactId>langchain4j-document-parser-apache-poi</artifactId>
-			<version>${langchain4j.version}</version>
 		</dependency>
 
 		<dependency>
