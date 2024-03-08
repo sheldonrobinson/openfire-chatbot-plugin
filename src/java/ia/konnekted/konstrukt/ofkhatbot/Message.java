@@ -2,6 +2,7 @@ package ia.konnekted.konstrukt.ofkhatbot;
 
 import io.github.amithkoujalgi.ollama4j.core.models.chat.OllamaChatMessage;
 import io.github.amithkoujalgi.ollama4j.core.models.chat.OllamaChatMessageRole;
+import lombok.ToString;
 import lombok.Value;
 import org.jivesoftware.util.cache.CacheSizes;
 import org.jivesoftware.util.cache.Cacheable;
@@ -25,5 +26,10 @@ public class Message extends OllamaChatMessage implements Serializable, Cacheabl
         size += CacheSizes.sizeOfAnything(getRole());
         size += CacheSizes.sizeOfString(getContent());
         return size;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("Message {\ntype: %s,\ncontent: %s\n}\n", getRole(), getContent());
     }
 }

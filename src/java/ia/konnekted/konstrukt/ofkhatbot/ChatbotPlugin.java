@@ -1,6 +1,7 @@
 package ia.konnekted.konstrukt.ofkhatbot;
 
 import io.github.amithkoujalgi.ollama4j.core.models.chat.OllamaChatMessageRole;
+import io.github.amithkoujalgi.ollama4j.core.utils.PromptBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.dom4j.Element;
 import org.igniterealtime.openfire.botz.BotzConnection;
@@ -45,13 +46,15 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
     private boolean enabled;
 
     public JID getBotzJid() {
+        Log.trace("<BEGIN>",new Exception());
         if(botzJid == null){
             try {
                 botzJid = new JID(bot.getUsername(), domain, bot.getResource());
             } catch (Exception e) {
-                Log.info("Unable to set botz JID", e);
+                Log.debug("Unable to set botz JID", e);
             }
         }
+        Log.trace("<END>");
         return botzJid;
     }
 
@@ -73,6 +76,7 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
 
     @Override
     public void initializePlugin(PluginManager pluginManager, File file) {
+        Log.trace("<BEGIN>",new Exception());
         model = ChatModelSettings.builder()
                 .alias(JiveGlobals.getProperty("chatbot.alias",Constants.CHATBOT_ALIAS_DEFAULT))
                 .model(JiveGlobals.getProperty("chatbot.llm.model",Constants.CHATBOT_LLM_MODEL_DEFAULT))
@@ -90,13 +94,13 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
         bot = new BotzConnection(new ChatBotzPacketReceiver(this));
         try {
             // Create user and login
+            Log.debug(String.format("Login chatbot %s\n", Constants.CHATBOT_USERNAME));
             bot.login(Constants.CHATBOT_USERNAME);
         }catch (Exception e) {
-            Log.info("Failed login", e);
+            Log.debug("Failed login", e);
         }
 
         try {
-            System.out.println("Setting nickname");
             IQ iq = new IQ();
             iq.setTo(domain);
             iq.setType(IQ.Type.set);
@@ -111,17 +115,17 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
                 photo.addElement("TYPE").setText("image/png");
                 photo.addElement("BINVAL").setText(Constants.CHATBOT_AVATAR_IMAGE);
             }
-
+            Log.debug(String.format("Setting nickname: %s\n", iq));
             bot.sendPacket(iq);
          } catch (Exception e) {
-             Log.info("Failed to set nickname", e);
+             Log.debug("Failed to set nickname", e);
          }
          try {
             Presence presence = new Presence();
             presence.setStatus("Online");
             bot.sendPacket(presence);
         } catch (Exception e) {
-            Log.info("Failed set Presence to Online", e);
+            Log.debug("Failed set Presence to Online", e);
         }
 
         cache.setMaxCacheSize(JiveGlobals.getLongProperty("chatbot.model.cache.size",Constants.CHATBOT_MODEL_CACHE_SIZE_DEFAULT));
@@ -134,15 +138,17 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
 
         PropertyEventDispatcher.addListener(this);
         MUCEventDispatcher.addListener(this);
+        Log.trace("<END>");
     }
 
     @Override
     public void destroyPlugin() {
+        Log.trace("<BEGIN>",new Exception());
         try
         {
             PropertyEventDispatcher.removeListener( this );
         }catch ( Exception ex ){
-            Log.info( "An exception occurred while trying to unload Chatbot PropertyListener.", ex );
+            Log.debug( "An exception occurred while trying to unload Chatbot PropertyListener.", ex );
         }
         try {
             MUCEventDispatcher.removeListener(this);
@@ -152,18 +158,18 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
         try {
             CacheFactory.destroyCache(Constants.CHATBOT_LLM_CACHE_NAME);
         }catch (Exception e){
-            Log.info("An exception occurred while trying to destroy the Chatbot cache.", e);
+            Log.debug("An exception occurred while trying to destroy the Chatbot cache.", e);
         }try {
             Presence presence = new Presence();
             presence.setStatus("Unavailable");
             bot.sendPacket(presence);
         } catch (Exception e) {
-            Log.info("Failed set Presence to Online", e);
+            Log.debug("Failed set Presence to Online", e);
         }
         try {
             bot.logout();
         }catch ( Exception e){
-            Log.info("An exception occurred while trying to close the bot.", e);
+            Log.debug("An exception occurred while trying to close the bot.", e);
         } finally {
             bot = null;
         }
@@ -172,10 +178,13 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
         mucManager = null;
         conversationManager = null;
         plugin = null;
+        Log.trace("<END>");
     }
 
     @Override
     public void propertySet(String property, Map<String, Object> map) {
+        Log.trace("<BEGIN>",new Exception());
+        Log.debug("Updating property: %s\n Properties: %s\n",property,map);
         if(property.startsWith("chatbot.")){
             if( !property.equals("chatbot.enabled")) {
                 model = ChatModelSettings.builder()
@@ -196,6 +205,7 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
                 enabled = JiveGlobals.getBooleanProperty("chatbot.enabled", true);
             }
         }
+        Log.trace("<END>");
     }
 
     @Override
@@ -214,22 +224,23 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
     }
 
     public LinkedList<Message> updateCache(JID jid, LinkedList<Message> messages){
-        System.out.printf("ChatbotPlugin:updateCache %s\n", jid.asBareJID());
+        Log.debug("Updating Cache for %s\n%s", jid.asBareJID(), messages);
         return cache.put(jid.asBareJID(), messages);
     }
 
     private boolean isMember(MUCRoom mucRoom){
+        Log.debug("Check if %s is member of Room %s\n%s", botzJid, mucRoom);
         return mucRoom.getMembers().stream().anyMatch(memberJID -> { return memberJID.equals(botzJid) || memberJID.asBareJID().equals(botzJid);});
     }
 
     @Override
     public void roomCreated(JID jid) {
-        System.out.printf("ChatbotPlugin:roomCreated<BEGIN> %s\n", jid);
+        Log.trace("<BEGIN>",new Exception());
+        Log.debug("Adding chatbot to room %s", jid);
         updateCache(jid, getMessages(jid));
         final MultiUserChatService service = mucManager.getMultiUserChatService(jid);
         final MUCRoom mucRoom = service.getChatRoom(jid.getNode());
 
-        System.out.printf("roomCreated:hasOccupant %s, %s\n", getBotzJid(), mucRoom.hasOccupant(getBotzJid()));
         if(!mucRoom.hasOccupant(getBotzJid())){
             Presence roomPresence = new Presence();
             roomPresence.setStatus("Online");
@@ -238,9 +249,7 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
                 try {
                     mucRoom.unlock(owner);
                 } catch (Exception e) {
-                    System.out.printf("Failed to unlock room %s with role %s\n", mucRoom, owner);
-                    e.printStackTrace();
-                    Log.info(String.format("Failed to unlock room %s with role %s\n", mucRoom, owner), e);
+                    Log.debug(String.format("Failed to unlock room %s using role %s\n", mucRoom, owner), e);
                 }
             }
             Lock lock = service.getChatRoomLock(jid.getNode());
@@ -249,47 +258,44 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
                 MUCRole adminRole = new MUCRole(mucRoom, mucRoom.getName(), MUCRole.Role.participant, MUCRole.Affiliation.admin, jid, roomPresence);
                 try {
                     lock.lock();
-                    System.out.printf("Adding member %s to room %s\n", botzJid, mucRoom);
+                    Log.info(String.format("Adding member %s to room %s\n", botzJid, mucRoom));
                     mucRoom.addMember(botzJid, model.getAlias(), adminRole);
                 } catch (Exception e) {
-                    System.out.printf("Failed to add member to %s with role %s\n", mucRoom, adminRole);
-                    e.printStackTrace();
-                    Log.info(String.format("Failed to add member %s with role %s", botzJid, adminRole), e);
+                    Log.debug(String.format("Failed to add %s to %s using role %s\n", botzJid, mucRoom, adminRole),e);
                 } finally {
                     lock.unlock();
                     try {
                         sleep(100L);
                     } catch (InterruptedException e) {
-                        e.printStackTrace();
+                        Log.trace("Interrupted while waiting to unlock", e);
                     }
                 }
             }
             try {
                 lock.lock();
-                System.out.printf("Member %s joining room %s\n", botzJid, mucRoom);
+                Log.info("Member %s joining room %s\n", botzJid, mucRoom);
                 mucRoom.joinRoom(model.getAlias(),null,null,getBotzJid(),roomPresence);
             } catch (Exception e) {
-                System.out.printf("Failed to join room %s with presence %s\n", mucRoom, roomPresence);
-                e.printStackTrace();
-                Log.info(String.format("Failed to join room %s with presence %s", mucRoom, roomPresence),e);
+                Log.debug(String.format("Member %s failed to join %s with presence %s\n", botzJid, mucRoom, roomPresence),e);
             } finally {
                 lock.unlock();
                 try {
                     sleep(100L);
                 } catch (InterruptedException e) {
-                    e.printStackTrace();
+                    Log.trace("Interrupted while waiting to unlock", e);
                 }
             }
             service.syncChatRoom(mucRoom);
         }
-        System.out.printf("ChatbotPlugin:roomCreated<END> %s\n", jid);
+        Log.trace("<END>");
     }
 
     @Override
     public void roomDestroyed(JID jid) {
-        System.out.printf("ChatbotPlugin:roomDestroyed<BEGIN> %s\n", jid);
+        Log.trace("<BEGIN>",new Exception());
+        Log.debug("Removing cache of room %s", jid);
         cache.remove(jid.asBareJID());
-        System.out.printf("ChatbotPlugin:roomDestroyed<END> %s\n", jid);
+        Log.trace("<END>");
     }
 
     @Override
@@ -341,23 +347,32 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
     }
 
     public void sendChatState(JID roomJid, ChatState state){
+        Log.trace("<BEGIN>",new Exception());
         org.xmpp.packet.Message message = new org.xmpp.packet.Message();
         message.setType(org.xmpp.packet.Message.Type.groupchat);
+        message.setTo(roomJid);
+        message.setSubject(null);
+        message.setBody(null);
         PacketExtension chatState = new PacketExtension(state.name(), "http://jabber.org/protocol/chatstates");
         message.addExtension(chatState);
-        message.setTo(roomJid);
+        Log.debug(String.format("Sending chatstate to room %s\n%s", roomJid, message));
         bot.sendPacket(message);
+        Log.trace("<END>");
+
     }
 
     private LinkedList<Message> getMessages(JID jid) {
-        System.out.printf("ChatbotPlugin:getMessages %s\n", jid);
+        Log.trace("<BEGIN>",new Exception());
+        Log.debug(String.format("Getting archived messages for %s", jid));
         LinkedList<Message> msgs = new LinkedList<Message>();
         if(!StringUtils.isEmpty( model.getSystemPrompt())){
-            Message systemPrompt = new Message(OllamaChatMessageRole.SYSTEM, model.getSystemPrompt());
+            Message systemPrompt = new Message(OllamaChatMessageRole.SYSTEM, new PromptBuilder().addLine(getModel().getSystemPrompt()).build());
             msgs.add(systemPrompt);
         }
         ArchiveSearch search = new ArchiveSearch();
+        search.setSortOrder(ArchiveSearch.SortOrder.ascending);
         search.setRoom(jid);
+        search.setParticipants(botzJid);
         Collection<Conversation> conversations = archiveSearcher.search(search);
         LinkedList<Message> archivedMsgs = (conversations != null) ? conversations.stream()
                 .flatMap(conversation -> conversation.getMessages(conversationManager).stream())
@@ -366,8 +381,8 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
                 .collect(Collectors.toCollection(LinkedList::new))
                 : new LinkedList<Message>();
         msgs.addAll(archivedMsgs);
-        System.out.printf("ChatbotPlugin:getMessages:msgs\n%s\n", msgs);
-        System.out.printf("ChatbotPlugin:getMessages<END> %s\n", jid);
+        Log.debug(String.format("Found archived messages for %s\n%s", jid, msgs));
+        Log.trace("<END>");
         return msgs;
     }
 
