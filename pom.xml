@@ -19,7 +19,6 @@
     <properties>
         <lombok-version>RELEASE</lombok-version>
         <openfire.version>4.7.5</openfire.version>
-		<langchain4j.version>0.27.1</langchain4j.version>
 		<github.global.server>github</github.global.server>
     </properties>
 	<licenses>
