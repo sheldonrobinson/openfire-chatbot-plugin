@@ -1,14 +1,6 @@
-<img src=https://igniterealtime.github.io/openfire-llama-plugin/llama.png>
-
 # Chatbot
 Chatbot for Openfire.
 This plugin is a wrapper to hosted AI Inference server for LLM chat models. It uses the HTTP API to create a chatbot in Openfire which will engage in XMPP chat and groupchat conversations.
-
-
-## Overview
-<img src="https://igniterealtime.github.io/openfire-llama-plugin/llama-chat.png" />
-
-https://github.com/igniterealtime/openfire-llama-plugin/assets/110731/ca670d11-86b2-4018-9893-ad5946f7707a
 
 ## Installation
 
@@ -41,23 +33,13 @@ Limit the next token selection to the K most probable tokens (default: 40).
 ### Top P Sampling
 Limit the next token selection to a subset of tokens with a cumulative probability above a threshold P (default: 0.95).
 
-## How to use
-<img src="https://igniterealtime.github.io/openfire-llama-plugin/llama-test.png" />
-
-To confirm that llama.cpp is working, use the demo web app to test.
-
-The plugin will create an Openfire user called llama (by default). The user can be engaged with in chat or groupchats from any XMPP client application like Spark, Converse or Conversations.
+The plugin will create an Openfire user called assistant (by default). The user can be engaged with in chat or groupchats from any XMPP client application like Spark, Converse or Conversations.
 
 ### Chat
 Add Assistant as a contact and start a chat conversation
 ````
-(22:20) User: what are female goats called?
-(22:20) Assistant:   Female goats are called does.
+Mar 8, 2024, 16:46:14: Explain in 50 words, how to make a chatbot.
+Assistant 16:46: Creating a chatbot involves several steps: First define its purpose and functionalities using natural language processing (NLP) tools like DialogfloworRasa. Next design the conversational flow with intentsandentitiesusingdialogue trees or storyboards. Then developthe bot logic by integrating itwithchat platforms such as Facebook Messenger,Slack or Telegram APIs. Finally test and refine your chatbot through continuous user interactions to improve its performance over time.
 ````
 ### Group Chat
-You can invite assistant to join a groupchat and it will auto-accept. Type any groupchat message that starts with llama's name (llama default) and it will respond. All other messages will be ignored. 
-
-![image](https://github.com/igniterealtime/openfire-llama-plugin/assets/110731/f5f59014-d7ec-45d3-846a-97d20c8b628e)
-
-If a message is typed in any chat room locally and it starts with the llama name (llama by default), then it will auto join the room and respond the instruction or query.
-Note that this only works with group-chats hosted in your Openfire server. Federation is not supported.
+When enabled, the chatbot joins all chatrooms created
