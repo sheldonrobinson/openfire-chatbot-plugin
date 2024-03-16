@@ -349,12 +349,13 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
     public void sendChatState(JID roomJid, ChatState state){
         Log.trace("<BEGIN>",new Exception());
         org.xmpp.packet.Message message = new org.xmpp.packet.Message();
-        message.setType(org.xmpp.packet.Message.Type.groupchat);
+        message.setType(org.xmpp.packet.Message.Type.chat);
         message.setTo(roomJid);
-        message.setSubject(null);
-        message.setBody(null);
-        PacketExtension chatState = new PacketExtension(state.name(), "http://jabber.org/protocol/chatstates");
-        message.addExtension(chatState);
+        // message.setSubject(null);
+        // message.setBody(null);
+        message.addChildElement(state.name(), "http://jabber.org/protocol/chatstates");
+        // PacketExtension chatState = new PacketExtension(state.name(), "http://jabber.org/protocol/chatstates");
+        // message.addExtension(chatState);
         Log.debug(String.format("Sending chatstate to room %s\n%s", roomJid, message));
         bot.sendPacket(message);
         Log.trace("<END>");

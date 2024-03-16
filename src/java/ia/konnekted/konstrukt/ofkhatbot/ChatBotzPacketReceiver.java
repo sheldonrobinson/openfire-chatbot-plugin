@@ -119,7 +119,7 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                     if(s.length() <= sb.length()) {
                         completed.set(true);
                     } else {
-                        // plugin.sendChatState(message.getFrom(), ChatState.composing);
+                        plugin.sendChatState(message.getFrom(), ChatState.composing);
                         sb.append(s.substring(sb.length(), s.length()));
                     }
                 };
@@ -185,6 +185,7 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                     if(s.length() <= sb.length()) {
                         completed.set(true);
                     } else {
+                        plugin.sendChatState(message.getFrom(), ChatState.composing);
                         sb.append(s.substring(sb.length(), s.length()));
                     }
                 };
