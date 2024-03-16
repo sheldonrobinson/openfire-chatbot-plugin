@@ -5,7 +5,7 @@ import lombok.Value;
 
 @Builder
 @Value
-public class OllamaSettings {
+public class ChatModelSettings {
     @Builder.Default private String alias = Constants.CHATBOT_ALIAS_DEFAULT;
     @Builder.Default private String url = Constants.CHATBOT_HOST_URL_DEFAULT;
     @Builder.Default private String systemPrompt = Constants.CHATBOT_SYSTEM_PROMPT_DEFAULT;

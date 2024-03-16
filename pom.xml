@@ -12,14 +12,16 @@
 
 	<groupId>ia.konnkted.konstrukt</groupId>
 	<artifactId>chatbot</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.1.1</version>
 	<name>ChatBot</name>
 	<description>Chatbot for Openfire</description>
 
     <properties>
+        <lombok-version>RELEASE</lombok-version>
         <openfire.version>4.7.5</openfire.version>
-		<langchain4j.version>0.27.1</langchain4j.version>
 		<github.global.server>github</github.global.server>
+		<github.maven.url>https://maven.pkg.github.com/sheldonrobinson/openfire-chatbot-plugin</github.maven.url>
+		<github.developer.id>sheldonrobinson</github.developer.id>
     </properties>
 	<licenses>
 		<license>
@@ -40,6 +42,21 @@
 		<developerConnection>scm:git:ssh://github.com:sheldonrobinbson/openfire-chatbot-plugin.git</developerConnection>
 		<url>http://github.com/sheldonrobinbson/openfire-chatbot-plugin/tree/master</url>
 	</scm>
+	<!-- distributionManagement>
+		<repository>
+			<id>internal.repo</id>
+			<name>Temporary Staging Repository</name>
+			<url>file://${project.build.directory}/mvn-repo</url>
+		</repository>
+	</distributionManagement -->
+	<distributionManagement>
+		<repository>
+			<id>github</id>
+			<name>Apache Maven Packages for sheldonrobinson</name>
+			<url>${github.maven.url}</url>
+		</repository>
+	</distributionManagement>
+
 	<build>
 		<sourceDirectory>src/java</sourceDirectory>
 		<plugins>
@@ -111,33 +128,56 @@
             </plugin>
 			<plugin>
 				<artifactId>maven-deploy-plugin</artifactId>
-				<version>2.8.1</version>
+				<version>3.1.1</version>
 				<configuration>
 					<altDeploymentRepository>internal.repo::default::file://${project.build.directory}/mvn-repo</altDeploymentRepository>
 				</configuration>
+				<executions>
+					<execution>
+						<id>deploy-file</id>
+						<phase>deploy</phase>
+						<goals>
+							<goal>deploy-file</goal>
+						</goals>
+						<configuration>
+							<repositoryId>github</repositoryId>
+							<file>${project.build.directory}/${project.artifactId}.jar</file>
+							<url>${github.maven.url}</url>
+							<groupId>${github.developer.id}</groupId>
+							<artifactId>${project.artifactId}</artifactId>
+							<version>${project.version}</version>
+							<packaging>jar</packaging>
+							<pomFile>${project.basedir}/pom.xml</pomFile>
+						</configuration>
+					</execution>
+				</executions>
 			</plugin>
-			<plugin>
+			<!-- plugin>
 				<groupId>com.github.github</groupId>
 				<artifactId>site-maven-plugin</artifactId>
 				<version>0.12</version>
 				<configuration>
 					<message>Creating site for ${project.name}/${project.version}</message>
+					<noJekyll>true</noJekyll>
 					<outputDirectory>${project.build.directory}/mvn-repo</outputDirectory>
 					<branch>refs/heads/mvn-repo</branch>
 					<includes>
 						<include>**/*</include>
 					</includes>
+					<merge>true</merge>
+					<repositoryName>openfire-chatbot-plugin</repositoryName>
+					<repositoryOwner>sheldonrobinson</repositoryOwner>
 				</configuration>
 				<executions>
 					<execution>
 						<goals>
 							<goal>site</goal>
 						</goals>
-						<phase>site</phase>
+						<phase>deploy</phase>
 					</execution>
 				</executions>
-			</plugin>
-			<plugin>
+			</plugin -->
+			<!-- plugin>
 				<groupId>org.sonatype.central</groupId>
 				<artifactId>central-publishing-maven-plugin</artifactId>
 				<version>0.3.0</version>
@@ -146,16 +186,17 @@
 					<publishingServerId>central</publishingServerId>
 					<tokenAuth>true</tokenAuth>
 				</configuration>
+			</plugin -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<source>9</source>
+					<target>9</target>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>
-	<distributionManagement>
-		<repository>
-			<id>internal.repo</id>
-			<name>Temporary Staging Repository</name>
-			<url>file://${project.build.directory}/mvn-repo</url>
-		</repository>
-	</distributionManagement>
 	<dependencies>
 		<dependency>
 			<groupId>org.igniterealtime.openfire.plugins</groupId>
@@ -178,33 +219,9 @@
 		</dependency>
 
 		<dependency>
-			<groupId>dev.langchain4j</groupId>
-			<artifactId>langchain4j</artifactId>
-			<version>${langchain4j.version}</version>
-		</dependency>
-
-		<dependency>
-			<groupId>dev.langchain4j</groupId>
-			<artifactId>langchain4j-embeddings</artifactId>
-			<version>${langchain4j.version}</version>
-		</dependency>
-
-		<dependency>
-			<groupId>dev.langchain4j</groupId>
-			<artifactId>langchain4j-ollama</artifactId>
-			<version>${langchain4j.version}</version>
-		</dependency>
-
-		<dependency>
-			<groupId>dev.langchain4j</groupId>
-			<artifactId>langchain4j-document-parser-apache-pdfbox</artifactId>
-			<version>${langchain4j.version}</version>
-		</dependency>
-
-		<dependency>
-			<groupId>dev.langchain4j</groupId>
-			<artifactId>langchain4j-document-parser-apache-poi</artifactId>
-			<version>${langchain4j.version}</version>
+			<groupId>io.github.amithkoujalgi</groupId>
+			<artifactId>ollama4j</artifactId>
+			<version>1.0.57</version>
 		</dependency>
 
 		<dependency>
@@ -212,10 +229,18 @@
 		    <artifactId>json</artifactId>
 		    <version>20240205</version>
 		</dependency>
+
+
+		<dependency>
+			<groupId>org.jrobin</groupId>
+			<artifactId>jrobin</artifactId>
+			<version>1.6.0</version>
+		</dependency>
+
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <version>RELEASE</version>
+            <version>${lombok-version}</version>
             <scope>compile</scope>
         </dependency>
 	</dependencies>

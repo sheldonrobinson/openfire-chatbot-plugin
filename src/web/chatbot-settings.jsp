@@ -1,7 +1,7 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="java.util.*"  errorPage="error.jsp" %>
 <%@ page import="org.jivesoftware.openfire.*,org.jivesoftware.util.*" %>
-<%@ page import="ia.konnekted.konstrukt.ofkhatbot.OllamaChatbotPlugin" %>
+<%@ page import="ia.konnekted.konstrukt.ofkhatbot.ChatbotPlugin" %>
 <%@ page import="ia.konnekted.konstrukt.ofkhatbot.Constants" %>
 <%@ page import="org.slf4j.Logger, org.slf4j.LoggerFactory" %>
 <%@ taglib uri="admin" prefix="admin" %>
@@ -45,8 +45,8 @@
         int predictions = ParamUtils.getIntParameter(request, "predictions", Constants.CHATBOT_LLM_PREDICTIONS_DEFAULT);
         JiveGlobals.setProperty("chatbot.llm.predictions", String.valueOf(predictions));
 
-        String enabled = request.getParameter("enabled");
-        JiveGlobals.setProperty("chatbot.enabled", (enabled != null && enabled.equals("on")) ? "true": "false");
+        boolean enabled = request.getParameter("enabled") != null;
+        JiveGlobals.setProperty("chatbot.enabled", String.valueOf(enabled));
     }
 
 
@@ -71,7 +71,7 @@
             <tbody> 
                 <tr>
                     <td nowrap  colspan="2">
-                        <input type="checkbox" name="enabled" <%= (JiveGlobals.getProperty("chatbot.enabled", "true").equals("true")) ? " checked" : "" %>>
+                        <input type="checkbox" name="enabled" <%= JiveGlobals.getProperty("chatbot.enabled", "true").equals("true") ? "checked" : "" %> >
                         <fmt:message key="config.page.configuration.enabled" />
                     </td>
                 </tr>
