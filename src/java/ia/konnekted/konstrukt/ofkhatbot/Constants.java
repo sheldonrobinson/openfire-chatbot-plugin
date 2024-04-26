@@ -9,7 +9,7 @@ import java.nio.charset.StandardCharsets;
 public class Constants {
     public static final String NAME = "chatbot";
     public static final String PLUGIN_NAME = "Chatbot";
-    public static final String CHATBOT_LLM_MODEL_DEFAULT = "mistral";
+    public static final String CHATBOT_LLM_MODEL_DEFAULT = "llama3";
     public static final String CHATBOT_HOST_URL_DEFAULT = "http://localhost:11434";
     public static final String CHATBOT_ALIAS_DEFAULT = "Assistant";
     public static final String CHATBOT_SYSTEM_PROMPT_DEFAULT = "You are a helpful assistant.";

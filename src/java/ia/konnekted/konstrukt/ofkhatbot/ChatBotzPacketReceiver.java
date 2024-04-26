@@ -43,53 +43,58 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
     }
     @Override
     public void initialize(BotzConnection botzConnection) {
-        Log.trace("<BEGIN>",new Exception());
         this.bot = botzConnection;
         this.executor = Executors.newCachedThreadPool();
         options = new OptionsBuilder()
-                .setNumPredict(plugin.getModel().getPredictions())
-                .setRepeatPenalty((float) plugin.getModel().getRepeatPenalty())
-                .setTopK(plugin.getModel().getTopK())
-                .setTopP((float) plugin.getModel().getTopP())
-                .setTemperature((float) plugin.getModel().getTemperature())
+                .setNumPredict(plugin.getChatModelSettings().getPredictions())
+                .setRepeatPenalty((float) plugin.getChatModelSettings().getRepeatPenalty())
+                .setTopK(plugin.getChatModelSettings().getTopK())
+                .setTopP((float) plugin.getChatModelSettings().getTopP())
+                .setTemperature((float) plugin.getChatModelSettings().getTemperature())
                 .build();
 
-        prompt = new PromptBuilder().addLine(plugin.getModel().getSystemPrompt()).build();
+        prompt = new PromptBuilder().addLine(plugin.getChatModelSettings().getSystemPrompt()).build();
         preloadModel();
-        Log.trace("<END>");
     }
 
     private void preloadModel(){
-        Log.trace("<BEGIN>",new Exception());
-
-        OllamaAPI ollamaAPI = plugin.getModel().getUrl().startsWith("http") ? new OllamaAPI(plugin.getModel().getUrl()) : new OllamaAPI("http://"+plugin.getModel().getUrl());
-
+        OllamaAPI ollamaAPI = plugin.getChatModelSettings().getUrl().startsWith("http") ? new OllamaAPI(plugin.getChatModelSettings().getUrl()) : new OllamaAPI("http://"+plugin.getChatModelSettings().getUrl());
+        try {
+            for (int count = 0; !ollamaAPI.ping() && count < 10; count++) {
+                try {
+                    sleep(100);
+                } catch (InterruptedException e) {
+                    Log.debug("Interrupted while pinging ollama API", e);
+                }
+            }
+        }catch (Exception e){
+            Log.debug("Problem encountered pinging ollama API", e);
+        }
         try {
             List<Model> models = ollamaAPI.listModels();
-            boolean found = models.stream().anyMatch(model -> { return model.getModelName().startsWith(plugin.getModel().getModel());});
+            boolean found = models.stream().anyMatch(model -> { return model.getModelName().startsWith(plugin.getChatModelSettings().getModel());});
             if (!found) {
-                ollamaAPI.pullModel(plugin.getModel().getModel());
+                ollamaAPI.pullModel(plugin.getChatModelSettings().getModel());
             }
         } catch (OllamaBaseException | IOException | InterruptedException | URISyntaxException e) {
-            e.printStackTrace();
+            Log.debug("Failed to load AI model",e);
         }
-        Log.trace("<END>");
     }
 
     @Override
     public void processIncoming(Packet packet) {
-        Log.trace("<BEGIN>",new Exception());
         Log.debug("packet: %s\n", packet);
-        JID from = packet.getFrom();
-        if (plugin.isEnabled() && !plugin.getBotzJid().asBareJID().equals(from.asBareJID())) { //
+        if (plugin.isEnabled() && plugin.getBotzJid().equals(packet.getTo())) { //
             if (packet instanceof org.xmpp.packet.Message && !StringUtils.isEmpty(((org.xmpp.packet.Message) packet).getBody())) {
                 org.xmpp.packet.Message.Type type = ((org.xmpp.packet.Message) packet).getType();
                 switch (type) {
                     case chat:
                     case groupchat:
-                        // if(from.getResource() !=null){
+                        JID from = packet.getFrom();
                         // Private message , one-on-one message received, use ChatLanguageModel
-                        converse((org.xmpp.packet.Message) packet);
+                        if(!plugin.getChatModelSettings().getAlias().equals(from.getResource())){
+                            converse((org.xmpp.packet.Message) packet);
+                        }
                         break;
                     case normal:
                          // Use ChatModel
@@ -102,31 +107,32 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                 }
             }
         }
-        Log.trace("<END>");
     }
 
     private void converse(org.xmpp.packet.Message message) {
         executor.execute(new Runnable() {
             @Override
             public void run() {
-                Log.trace("<BEGIN>",new Exception());
                 Log.debug("message: %s\n", message);
-                OllamaAPI ollamaAPI = plugin.getModel().getUrl().startsWith("http") ? new OllamaAPI(plugin.getModel().getUrl()) : new OllamaAPI("http://"+plugin.getModel().getUrl());
+                OllamaAPI ollamaAPI = plugin.getChatModelSettings().getUrl().startsWith("http") ? new OllamaAPI(plugin.getChatModelSettings().getUrl()) : new OllamaAPI("http://"+plugin.getChatModelSettings().getUrl());
                 ollamaAPI.setVerbose(true);
                 StringBuilder sb = new StringBuilder();
                 AtomicBoolean completed = new AtomicBoolean(false);
                 OllamaStreamHandler streamHandler = (s) -> {
                     if(s.length() <= sb.length()) {
                         completed.set(true);
+                        Log.info("Got complete response\n");
                     } else {
                         plugin.sendChatState(message.getFrom(), ChatState.composing);
-                        sb.append(s.substring(sb.length(), s.length()));
+                        String msg = s.substring(sb.length(), s.length());
+                        sb.append(msg);
+
                     }
                 };
 
                 List<OllamaChatMessage> messages = plugin.getCachedMessages(message.getFrom().asBareJID()).stream().map(msg -> new OllamaChatMessage(msg.getRole(), msg.getContent())).collect(Collectors.toList());
 
-                OllamaChatRequestModel request = OllamaChatRequestBuilder.getInstance(plugin.getModel().getModel())
+                OllamaChatRequestModel request = OllamaChatRequestBuilder.getInstance(plugin.getChatModelSettings().getModel())
                         .withMessages(messages)
                         .withMessage(OllamaChatMessageRole.USER, message.getBody())
                         .withOptions(options)
@@ -134,12 +140,16 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                         .build();
                 OllamaChatResult result = null;
                 try {
-                    for(int count = 0; !ollamaAPI.ping() && count < 10; count++) {
-                        try {
-                            sleep(100);
-                        } catch (InterruptedException e) {
-                            Log.debug("Problem encountered pinging ollama API",e);
+                    try {
+                        for (int count = 0; !ollamaAPI.ping() && count < 10; count++) {
+                            try {
+                                sleep(100);
+                            } catch (InterruptedException e) {
+                                Log.debug("Interrupted while pinging ollama API", e);
+                            }
                         }
+                    }catch(Exception  e) {
+                        Log.debug("Problem encountered pinging ollama API", e);
                     }
 
                     result = ollamaAPI.chat(request, streamHandler);
@@ -155,8 +165,8 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                     Log.debug("cached messages: %s\n", updated);
                     plugin.updateCache(message.getFrom(), updated);
                     org.xmpp.packet.Message newMessage = new org.xmpp.packet.Message();
-                    newMessage.setType(org.xmpp.packet.Message.Type.chat);
-                    newMessage.setTo(message.getFrom());
+                    newMessage.setType(org.xmpp.packet.Message.Type.groupchat);
+                    newMessage.setTo(message.getFrom().asBareJID());
                     if(!StringUtils.isEmpty(message.getThread())){
                         newMessage.setThread(message.getThread());
                     }
@@ -164,9 +174,17 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                     Log.debug("newMessage: %s\n", newMessage);
                     bot.sendPacket(newMessage);
                     
+                } else {
+                    org.xmpp.packet.Message newMessage = new org.xmpp.packet.Message();
+                    newMessage.setType(org.xmpp.packet.Message.Type.groupchat);
+                    newMessage.setTo(message.getFrom().asBareJID());
+                    if(!StringUtils.isEmpty(message.getThread())){
+                        newMessage.setThread(message.getThread());
+                    }
+                    newMessage.setBody("I was unable to fulfil your request, maybe try again to later.");
+                    Log.debug("newMessage: %s\n", newMessage);
+                    bot.sendPacket(newMessage);
                 }
-                Log.trace("<END>");
-
             }
         });
     }
@@ -175,39 +193,44 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
         executor.execute(new Runnable() {
             @Override
             public void run() {
-                Log.trace("<BEGIN>",new Exception());
                 Log.debug("message: %s\n", message);
-                OllamaAPI ollamaAPI = plugin.getModel().getUrl().startsWith("http") ? new OllamaAPI(plugin.getModel().getUrl()) : new OllamaAPI("http://"+plugin.getModel().getUrl());
+                OllamaAPI ollamaAPI = plugin.getChatModelSettings().getUrl().startsWith("http") ? new OllamaAPI(plugin.getChatModelSettings().getUrl()) : new OllamaAPI("http://"+plugin.getChatModelSettings().getUrl());
                 ollamaAPI.setVerbose(true);
                 StringBuilder sb = new StringBuilder();
                 AtomicBoolean completed = new AtomicBoolean(false);
                 OllamaStreamHandler streamHandler = (s) -> {
                     if(s.length() <= sb.length()) {
                         completed.set(true);
+                        Log.debug("Got complete response\n");
                     } else {
                         plugin.sendChatState(message.getFrom(), ChatState.composing);
-                        sb.append(s.substring(sb.length(), s.length()));
+                        String msg = s.substring(sb.length(), s.length());
+                        sb.append(msg);
                     }
                 };
 
                 List<OllamaChatMessage> messages = new LinkedList<>();
 
 
-                OllamaChatRequestModel request = (!StringUtils.isEmpty(plugin.getModel().getSystemPrompt()) ?
-                        OllamaChatRequestBuilder.getInstance(plugin.getModel().getModel()).withMessage(OllamaChatMessageRole.SYSTEM, prompt)
-                        : OllamaChatRequestBuilder.getInstance(plugin.getModel().getModel()))
+                OllamaChatRequestModel request = (!StringUtils.isEmpty(plugin.getChatModelSettings().getSystemPrompt()) ?
+                        OllamaChatRequestBuilder.getInstance(plugin.getChatModelSettings().getModel()).withMessage(OllamaChatMessageRole.SYSTEM, prompt)
+                        : OllamaChatRequestBuilder.getInstance(plugin.getChatModelSettings().getModel()))
                         .withMessage(OllamaChatMessageRole.USER, message.getBody())
                         .withOptions(options)
                         .withStreaming()
                         .build();
                 OllamaChatResult result = null;
                 try {
-                    for(int count = 0; !ollamaAPI.ping() && count < 10; count++) {
-                        try {
-                            sleep(100);
-                        } catch (InterruptedException e) {
-                            Log.debug("Problem encountered pinging ollama API",e);
+                    try {
+                        for (int count = 0; !ollamaAPI.ping() && count < 10; count++) {
+                            try {
+                                sleep(100);
+                            } catch (InterruptedException e) {
+                                Log.debug("Interrupted while pinging ollama API", e);
+                            }
                         }
+                    }catch(Exception  e) {
+                        Log.debug("Problem encountered pinging ollama API", e);
                     }
                     result = ollamaAPI.chat(request, streamHandler);
                     while (!completed.get()) {
@@ -219,7 +242,7 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
 
                 if (result != null && result.getHttpStatusCode() == 200  && !StringUtils.isEmpty(result.getResponse())) {
                     org.xmpp.packet.Message newMessage = new org.xmpp.packet.Message();
-                    newMessage.setType(org.xmpp.packet.Message.Type.chat);
+                    newMessage.setType(org.xmpp.packet.Message.Type.normal);
                     newMessage.setTo(message.getFrom());
                     if(!StringUtils.isEmpty(message.getThread())){
                         newMessage.setThread(message.getThread());
@@ -227,8 +250,17 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                     newMessage.setBody(result.getResponse());
                     Log.debug("newMessage: %s\n", newMessage);
                     bot.sendPacket(newMessage);
+                } else {
+                    org.xmpp.packet.Message newMessage = new org.xmpp.packet.Message();
+                    newMessage.setType(org.xmpp.packet.Message.Type.normal);
+                    newMessage.setTo(message.getFrom());
+                    if(!StringUtils.isEmpty(message.getThread())){
+                        newMessage.setThread(message.getThread());
+                    }
+                    newMessage.setBody("I was unable to fulfil your request, maybe try again to later.");
+                    Log.debug("newMessage: %s\n", newMessage);
+                    bot.sendPacket(newMessage);
                 }
-                Log.trace("<END>");
             }
         });
     }

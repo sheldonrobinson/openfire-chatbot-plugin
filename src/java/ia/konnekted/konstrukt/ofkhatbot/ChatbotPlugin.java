@@ -41,12 +41,11 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
     private ArchiveSearcher archiveSearcher;
     private MonitoringPlugin plugin;
     private final Cache<JID, LinkedList<Message>> cache = CacheFactory.createCache(Constants.CHATBOT_LLM_CACHE_NAME);
-    private ChatModelSettings model;
+    private ChatModelSettings chatModelSettings;
     private JID botzJid;
     private boolean enabled;
 
     public JID getBotzJid() {
-        Log.trace("<BEGIN>",new Exception());
         if(botzJid == null){
             try {
                 botzJid = new JID(bot.getUsername(), domain, bot.getResource());
@@ -54,7 +53,6 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
                 Log.debug("Unable to set botz JID", e);
             }
         }
-        Log.trace("<END>");
         return botzJid;
     }
 
@@ -66,8 +64,8 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
         return cache;
     }
 
-    public ChatModelSettings getModel() {
-        return model;
+    public ChatModelSettings getChatModelSettings() {
+        return chatModelSettings;
     }
 
     public ChatbotPlugin(){
@@ -76,8 +74,7 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
 
     @Override
     public void initializePlugin(PluginManager pluginManager, File file) {
-        Log.trace("<BEGIN>",new Exception());
-        model = ChatModelSettings.builder()
+        chatModelSettings = ChatModelSettings.builder()
                 .alias(JiveGlobals.getProperty("chatbot.alias",Constants.CHATBOT_ALIAS_DEFAULT))
                 .model(JiveGlobals.getProperty("chatbot.llm.model",Constants.CHATBOT_LLM_MODEL_DEFAULT))
                 .url(JiveGlobals.getProperty("chatbot.host.url",Constants.CHATBOT_HOST_URL_DEFAULT))
@@ -106,8 +103,8 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
             iq.setType(IQ.Type.set);
 
             Element child = iq.setChildElement("vCard", "vcard-temp");
-            child.addElement("N").setText(model.getAlias());
-            child.addElement("FN").setText(model.getAlias());
+            child.addElement("N").setText(chatModelSettings.getAlias());
+            child.addElement("FN").setText(chatModelSettings.getAlias());
             child.addElement("NICKNAME").setText(Constants.CHATBOT_NICKNAME);
 
             if(!StringUtils.isEmpty(Constants.CHATBOT_AVATAR_IMAGE)){
@@ -138,12 +135,10 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
 
         PropertyEventDispatcher.addListener(this);
         MUCEventDispatcher.addListener(this);
-        Log.trace("<END>");
     }
 
     @Override
     public void destroyPlugin() {
-        Log.trace("<BEGIN>",new Exception());
         try
         {
             PropertyEventDispatcher.removeListener( this );
@@ -174,20 +169,18 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
             bot = null;
         }
 
-        model = null;
+        chatModelSettings = null;
         mucManager = null;
         conversationManager = null;
         plugin = null;
-        Log.trace("<END>");
     }
 
     @Override
     public void propertySet(String property, Map<String, Object> map) {
-        Log.trace("<BEGIN>",new Exception());
         Log.debug("Updating property: %s\n Properties: %s\n",property,map);
         if(property.startsWith("chatbot.")){
             if( !property.equals("chatbot.enabled")) {
-                model = ChatModelSettings.builder()
+                chatModelSettings = ChatModelSettings.builder()
                         .alias(JiveGlobals.getProperty("chatbot.alias",map.containsKey("chatbot.alias")?(String) map.get("chatbot.alias"):Constants.CHATBOT_ALIAS_DEFAULT))
                         .model(JiveGlobals.getProperty("chatbot.llm.model", map.containsKey("chatbot.llm.model")?(String) map.get("chatbot.llm.model"):Constants.CHATBOT_LLM_MODEL_DEFAULT))
                         .url(JiveGlobals.getProperty("chatbot.host.url", map.containsKey("chatbot.host.url")?(String) map.get("chatbot.host.url"):Constants.CHATBOT_HOST_URL_DEFAULT))
@@ -205,7 +198,6 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
                 enabled = JiveGlobals.getBooleanProperty("chatbot.enabled", true);
             }
         }
-        Log.trace("<END>");
     }
 
     @Override
@@ -235,7 +227,6 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
 
     @Override
     public void roomCreated(JID jid) {
-        Log.trace("<BEGIN>",new Exception());
         Log.debug("Adding chatbot to room %s", jid);
         updateCache(jid, getMessages(jid));
         final MultiUserChatService service = mucManager.getMultiUserChatService(jid);
@@ -259,7 +250,7 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
                 try {
                     lock.lock();
                     Log.info(String.format("Adding member %s to room %s\n", botzJid, mucRoom));
-                    mucRoom.addMember(botzJid, model.getAlias(), adminRole);
+                    mucRoom.addMember(botzJid, chatModelSettings.getAlias(), adminRole);
                 } catch (Exception e) {
                     Log.debug(String.format("Failed to add %s to %s using role %s\n", botzJid, mucRoom, adminRole),e);
                 } finally {
@@ -274,7 +265,7 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
             try {
                 lock.lock();
                 Log.info("Member %s joining room %s\n", botzJid, mucRoom);
-                mucRoom.joinRoom(model.getAlias(),null,null,getBotzJid(),roomPresence);
+                mucRoom.joinRoom(chatModelSettings.getAlias(),null,null,getBotzJid(),roomPresence);
             } catch (Exception e) {
                 Log.debug(String.format("Member %s failed to join %s with presence %s\n", botzJid, mucRoom, roomPresence),e);
             } finally {
@@ -287,15 +278,12 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
             }
             service.syncChatRoom(mucRoom);
         }
-        Log.trace("<END>");
     }
 
     @Override
     public void roomDestroyed(JID jid) {
-        Log.trace("<BEGIN>",new Exception());
         Log.debug("Removing cache of room %s", jid);
         cache.remove(jid.asBareJID());
-        Log.trace("<END>");
     }
 
     @Override
@@ -347,27 +335,19 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
     }
 
     public void sendChatState(JID roomJid, ChatState state){
-        Log.trace("<BEGIN>",new Exception());
         org.xmpp.packet.Message message = new org.xmpp.packet.Message();
         message.setType(org.xmpp.packet.Message.Type.chat);
         message.setTo(roomJid);
-        // message.setSubject(null);
-        // message.setBody(null);
         message.addChildElement(state.name(), "http://jabber.org/protocol/chatstates");
-        // PacketExtension chatState = new PacketExtension(state.name(), "http://jabber.org/protocol/chatstates");
-        // message.addExtension(chatState);
         Log.debug(String.format("Sending chatstate to room %s\n%s", roomJid, message));
         bot.sendPacket(message);
-        Log.trace("<END>");
-
     }
 
     private LinkedList<Message> getMessages(JID jid) {
-        Log.trace("<BEGIN>",new Exception());
         Log.debug(String.format("Getting archived messages for %s", jid));
         LinkedList<Message> msgs = new LinkedList<Message>();
-        if(!StringUtils.isEmpty( model.getSystemPrompt())){
-            Message systemPrompt = new Message(OllamaChatMessageRole.SYSTEM, new PromptBuilder().addLine(getModel().getSystemPrompt()).build());
+        if(!StringUtils.isEmpty( chatModelSettings.getSystemPrompt())){
+            Message systemPrompt = new Message(OllamaChatMessageRole.SYSTEM, new PromptBuilder().addLine(getChatModelSettings().getSystemPrompt()).build());
             msgs.add(systemPrompt);
         }
         ArchiveSearch search = new ArchiveSearch();
@@ -383,7 +363,6 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
                 : new LinkedList<Message>();
         msgs.addAll(archivedMsgs);
         Log.debug(String.format("Found archived messages for %s\n%s", jid, msgs));
-        Log.trace("<END>");
         return msgs;
     }
 
