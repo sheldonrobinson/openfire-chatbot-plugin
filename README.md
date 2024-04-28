@@ -10,7 +10,7 @@ copy chatbot.jar to the plugins folder
 <img src="docs/llama-settings.png" />
 
 ### Enable Chatbot
-Enables or disables the plugin. Reload plugin or restart Openfire if this or any of the settings other settings are changed.
+Enables or disables the plugin. Reload plugin or restart Openfire if this or any other settings are changed.
 
 ### Host
 The URL to the remote server to be used. The plugin will assume that remote server has the correct LLaMA model and configuration. It will send requests to this URL.
