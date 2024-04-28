@@ -91,7 +91,6 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
         bot = new BotzConnection(new ChatBotzPacketReceiver(this));
         try {
             // Create user and login
-            Log.debug(String.format("Login chatbot %s\n", Constants.CHATBOT_USERNAME));
             bot.login(Constants.CHATBOT_USERNAME);
         }catch (Exception e) {
             Log.debug("Failed login", e);
@@ -112,7 +111,6 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
                 photo.addElement("TYPE").setText("image/png");
                 photo.addElement("BINVAL").setText(Constants.CHATBOT_AVATAR_IMAGE);
             }
-            Log.debug(String.format("Setting nickname: %s\n", iq));
             bot.sendPacket(iq);
          } catch (Exception e) {
              Log.debug("Failed to set nickname", e);
@@ -177,7 +175,6 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
 
     @Override
     public void propertySet(String property, Map<String, Object> map) {
-        Log.debug("Updating property: %s\n Properties: %s\n",property,map);
         if(property.startsWith("chatbot.")){
             if( !property.equals("chatbot.enabled")) {
                 chatModelSettings = ChatModelSettings.builder()
@@ -216,18 +213,15 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
     }
 
     public LinkedList<Message> updateCache(JID jid, LinkedList<Message> messages){
-        Log.debug("Updating Cache for %s\n%s", jid.asBareJID(), messages);
         return cache.put(jid.asBareJID(), messages);
     }
 
     private boolean isMember(MUCRoom mucRoom){
-        Log.debug("Check if %s is member of Room %s\n%s", botzJid, mucRoom);
         return mucRoom.getMembers().stream().anyMatch(memberJID -> { return memberJID.equals(botzJid) || memberJID.asBareJID().equals(botzJid);});
     }
 
     @Override
     public void roomCreated(JID jid) {
-        Log.debug("Adding chatbot to room %s", jid);
         updateCache(jid, getMessages(jid));
         final MultiUserChatService service = mucManager.getMultiUserChatService(jid);
         final MUCRoom mucRoom = service.getChatRoom(jid.getNode());
@@ -249,7 +243,6 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
                 MUCRole adminRole = new MUCRole(mucRoom, mucRoom.getName(), MUCRole.Role.participant, MUCRole.Affiliation.admin, jid, roomPresence);
                 try {
                     lock.lock();
-                    Log.info(String.format("Adding member %s to room %s\n", botzJid, mucRoom));
                     mucRoom.addMember(botzJid, chatModelSettings.getAlias(), adminRole);
                 } catch (Exception e) {
                     Log.debug(String.format("Failed to add %s to %s using role %s\n", botzJid, mucRoom, adminRole),e);
@@ -282,7 +275,6 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
 
     @Override
     public void roomDestroyed(JID jid) {
-        Log.debug("Removing cache of room %s", jid);
         cache.remove(jid.asBareJID());
     }
 
@@ -339,12 +331,10 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
         message.setType(org.xmpp.packet.Message.Type.chat);
         message.setTo(roomJid);
         message.addChildElement(state.name(), "http://jabber.org/protocol/chatstates");
-        Log.debug(String.format("Sending chatstate to room %s\n%s", roomJid, message));
         bot.sendPacket(message);
     }
 
     private LinkedList<Message> getMessages(JID jid) {
-        Log.debug(String.format("Getting archived messages for %s", jid));
         LinkedList<Message> msgs = new LinkedList<Message>();
         if(!StringUtils.isEmpty( chatModelSettings.getSystemPrompt())){
             Message systemPrompt = new Message(OllamaChatMessageRole.SYSTEM, new PromptBuilder().addLine(getChatModelSettings().getSystemPrompt()).build());
@@ -362,7 +352,6 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
                 .collect(Collectors.toCollection(LinkedList::new))
                 : new LinkedList<Message>();
         msgs.addAll(archivedMsgs);
-        Log.debug(String.format("Found archived messages for %s\n%s", jid, msgs));
         return msgs;
     }
 

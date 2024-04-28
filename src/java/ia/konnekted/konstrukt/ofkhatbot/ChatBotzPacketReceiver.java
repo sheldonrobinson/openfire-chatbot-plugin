@@ -30,6 +30,7 @@ import static java.lang.Thread.sleep;
 
 public class ChatBotzPacketReceiver implements BotzPacketReceiver {
 
+    private static final String NO_ANSWER = "I was unable to fulfil your request, maybe try again to later.";
     private static final Logger Log = LoggerFactory.getLogger(ChatBotzPacketReceiver.class);
     private ExecutorService executor;
     private BotzConnection bot;
@@ -83,7 +84,6 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
 
     @Override
     public void processIncoming(Packet packet) {
-        Log.debug("packet: %s\n", packet);
         if (plugin.isEnabled() && plugin.getBotzJid().equals(packet.getTo())) { //
             if (packet instanceof org.xmpp.packet.Message && !StringUtils.isEmpty(((org.xmpp.packet.Message) packet).getBody())) {
                 org.xmpp.packet.Message.Type type = ((org.xmpp.packet.Message) packet).getType();
@@ -113,7 +113,6 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
         executor.execute(new Runnable() {
             @Override
             public void run() {
-                Log.debug("message: %s\n", message);
                 OllamaAPI ollamaAPI = plugin.getChatModelSettings().getUrl().startsWith("http") ? new OllamaAPI(plugin.getChatModelSettings().getUrl()) : new OllamaAPI("http://"+plugin.getChatModelSettings().getUrl());
                 ollamaAPI.setVerbose(true);
                 StringBuilder sb = new StringBuilder();
@@ -121,10 +120,9 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                 OllamaStreamHandler streamHandler = (s) -> {
                     if(s.length() <= sb.length()) {
                         completed.set(true);
-                        Log.info("Got complete response\n");
                     } else {
                         plugin.sendChatState(message.getFrom(), ChatState.composing);
-                        String msg = s.substring(sb.length(), s.length());
+                        String msg = s.substring(sb.length() , s.length());
                         sb.append(msg);
 
                     }
@@ -162,7 +160,6 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
 
                 if (result != null && result.getHttpStatusCode() == 200  && !StringUtils.isEmpty(result.getResponse())) {
                     LinkedList<Message> updated = result.getChatHistory().stream().map(message -> new Message(message)).collect(Collectors.toCollection(LinkedList::new));
-                    Log.debug("cached messages: %s\n", updated);
                     plugin.updateCache(message.getFrom(), updated);
                     org.xmpp.packet.Message newMessage = new org.xmpp.packet.Message();
                     newMessage.setType(org.xmpp.packet.Message.Type.groupchat);
@@ -171,18 +168,21 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                         newMessage.setThread(message.getThread());
                     }
                     newMessage.setBody(result.getResponse());
-                    Log.debug("newMessage: %s\n", newMessage);
                     bot.sendPacket(newMessage);
                     
                 } else {
+                    LinkedList<Message> updated = messages.stream().map(message -> new Message(message)).collect(Collectors.toCollection(LinkedList::new));
+                    updated.add(new Message(OllamaChatMessageRole.USER, message.getBody()));
+                    String answer = sb.length() > 0 ? sb.toString() : NO_ANSWER;
+                    updated.add(new Message(OllamaChatMessageRole.ASSISTANT, answer));
+                    plugin.updateCache(message.getFrom(), updated);
                     org.xmpp.packet.Message newMessage = new org.xmpp.packet.Message();
                     newMessage.setType(org.xmpp.packet.Message.Type.groupchat);
                     newMessage.setTo(message.getFrom().asBareJID());
                     if(!StringUtils.isEmpty(message.getThread())){
                         newMessage.setThread(message.getThread());
                     }
-                    newMessage.setBody("I was unable to fulfil your request, maybe try again to later.");
-                    Log.debug("newMessage: %s\n", newMessage);
+                    newMessage.setBody(answer);
                     bot.sendPacket(newMessage);
                 }
             }
@@ -193,7 +193,6 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
         executor.execute(new Runnable() {
             @Override
             public void run() {
-                Log.debug("message: %s\n", message);
                 OllamaAPI ollamaAPI = plugin.getChatModelSettings().getUrl().startsWith("http") ? new OllamaAPI(plugin.getChatModelSettings().getUrl()) : new OllamaAPI("http://"+plugin.getChatModelSettings().getUrl());
                 ollamaAPI.setVerbose(true);
                 StringBuilder sb = new StringBuilder();
@@ -201,7 +200,6 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                 OllamaStreamHandler streamHandler = (s) -> {
                     if(s.length() <= sb.length()) {
                         completed.set(true);
-                        Log.debug("Got complete response\n");
                     } else {
                         plugin.sendChatState(message.getFrom(), ChatState.composing);
                         String msg = s.substring(sb.length(), s.length());
@@ -248,17 +246,16 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                         newMessage.setThread(message.getThread());
                     }
                     newMessage.setBody(result.getResponse());
-                    Log.debug("newMessage: %s\n", newMessage);
                     bot.sendPacket(newMessage);
                 } else {
+                    String answer = sb.length() > 0 ? sb.toString() : NO_ANSWER;
                     org.xmpp.packet.Message newMessage = new org.xmpp.packet.Message();
                     newMessage.setType(org.xmpp.packet.Message.Type.normal);
                     newMessage.setTo(message.getFrom());
                     if(!StringUtils.isEmpty(message.getThread())){
                         newMessage.setThread(message.getThread());
                     }
-                    newMessage.setBody("I was unable to fulfil your request, maybe try again to later.");
-                    Log.debug("newMessage: %s\n", newMessage);
+                    newMessage.setBody(answer);
                     bot.sendPacket(newMessage);
                 }
             }
