@@ -1,6 +1,6 @@
 # Chatbot
 Chatbot for Openfire.
-This plugin is a wrapper to hosted AI Inference server for LLM chat models. It uses the HTTP API to create a chatbot in Openfire which will engage in XMPP chat and groupchat conversations.
+This plugin is a wrapper to a hosted [Ollama AI](https://ollama.com/) Inference server for LLM chat models. It uses the HTTP API to create a chatbot in Openfire which will engage in XMPP chat and groupchat conversations.
 
 ## Installation
 
