@@ -7,7 +7,7 @@ This plugin is a wrapper to hosted AI Inference server for LLM chat models. It u
 copy chatbot.jar to the plugins folder
 
 ## Configuration
-<img src="https://igniterealtime.github.io/openfire-llama-plugin/llama-settings.png" />
+<img src="docs/llama-settings.png" />
 
 ### Enable Chatbot
 Enables or disables the plugin. Reload plugin or restart Openfire if this or any of the settings other settings are changed.
