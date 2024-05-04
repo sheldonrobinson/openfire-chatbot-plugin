@@ -30,7 +30,7 @@ import static java.lang.Thread.sleep;
 
 public class ChatBotzPacketReceiver implements BotzPacketReceiver {
 
-    private static final String NO_ANSWER = "I was unable to fulfil your request, maybe try again to later.";
+    private static final String NO_ANSWER = "I was unable to fulfil your request, you may try again.";
     private static final Logger Log = LoggerFactory.getLogger(ChatBotzPacketReceiver.class);
     private ExecutorService executor;
     private BotzConnection bot;
