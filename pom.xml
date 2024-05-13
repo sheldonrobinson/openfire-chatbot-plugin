@@ -12,7 +12,7 @@
 
 	<groupId>ia.konnkted.konstrukt</groupId>
 	<artifactId>chatbot</artifactId>
-	<version>0.2.11</version>
+	<version>0.2.16</version>
 	<name>ChatBot</name>
 	<description>Chatbot for Openfire</description>
 
@@ -42,13 +42,6 @@
 		<developerConnection>scm:git:ssh://github.com:sheldonrobinbson/openfire-chatbot-plugin.git</developerConnection>
 		<url>http://github.com/sheldonrobinbson/openfire-chatbot-plugin/tree/master</url>
 	</scm>
-	<!-- distributionManagement>
-		<repository>
-			<id>internal.repo</id>
-			<name>Temporary Staging Repository</name>
-			<url>file://${project.build.directory}/mvn-repo</url>
-		</repository>
-	</distributionManagement -->
 	<distributionManagement>
 		<repository>
 			<id>github</id>
@@ -152,41 +145,6 @@
 					</execution>
 				</executions>
 			</plugin>
-			<!-- plugin>
-				<groupId>com.github.github</groupId>
-				<artifactId>site-maven-plugin</artifactId>
-				<version>0.12</version>
-				<configuration>
-					<message>Creating site for ${project.name}/${project.version}</message>
-					<noJekyll>true</noJekyll>
-					<outputDirectory>${project.build.directory}/mvn-repo</outputDirectory>
-					<branch>refs/heads/mvn-repo</branch>
-					<includes>
-						<include>**/*</include>
-					</includes>
-					<merge>true</merge>
-					<repositoryName>openfire-chatbot-plugin</repositoryName>
-					<repositoryOwner>sheldonrobinson</repositoryOwner>
-				</configuration>
-				<executions>
-					<execution>
-						<goals>
-							<goal>site</goal>
-						</goals>
-						<phase>deploy</phase>
-					</execution>
-				</executions>
-			</plugin -->
-			<!-- plugin>
-				<groupId>org.sonatype.central</groupId>
-				<artifactId>central-publishing-maven-plugin</artifactId>
-				<version>0.3.0</version>
-				<extensions>true</extensions>
-				<configuration>
-					<publishingServerId>central</publishingServerId>
-					<tokenAuth>true</tokenAuth>
-				</configuration>
-			</plugin -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>

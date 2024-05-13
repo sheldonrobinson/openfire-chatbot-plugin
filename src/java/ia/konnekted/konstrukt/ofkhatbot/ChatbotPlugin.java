@@ -257,7 +257,6 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
             }
             try {
                 lock.lock();
-                Log.info("Member %s joining room %s\n", botzJid, mucRoom);
                 mucRoom.joinRoom(chatModelSettings.getAlias(),null,null,getBotzJid(),roomPresence);
             } catch (Exception e) {
                 Log.debug(String.format("Member %s failed to join %s with presence %s\n", botzJid, mucRoom, roomPresence),e);
