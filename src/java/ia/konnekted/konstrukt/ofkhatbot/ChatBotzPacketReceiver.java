@@ -8,6 +8,7 @@ import io.github.amithkoujalgi.ollama4j.core.models.chat.*;
 import io.github.amithkoujalgi.ollama4j.core.utils.Options;
 import io.github.amithkoujalgi.ollama4j.core.utils.OptionsBuilder;
 import io.github.amithkoujalgi.ollama4j.core.utils.PromptBuilder;
+import lombok.extern.flogger.Flogger;
 import org.apache.commons.lang3.StringUtils;
 import org.igniterealtime.openfire.botz.BotzConnection;
 import org.igniterealtime.openfire.botz.BotzPacketReceiver;
@@ -78,7 +79,7 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                 ollamaAPI.pullModel(plugin.getChatModelSettings().getModel());
             }
         } catch (OllamaBaseException | IOException | InterruptedException | URISyntaxException e) {
-            Log.debug("Failed to load AI model",e);
+            Log.error("Failed to load AI model",e);
         }
     }
 
@@ -110,6 +111,7 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
     }
 
     private void converse(org.xmpp.packet.Message message) {
+        Log.info("converse: {}", message);
         executor.execute(new Runnable() {
             @Override
             public void run() {
@@ -120,7 +122,9 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                 OllamaStreamHandler streamHandler = (s) -> {
                     if(s.length() <= sb.length()) {
                         completed.set(true);
+                        Log.info("OllamaStreamHandler.Result: {}", sb.toString());
                     } else {
+                        Log.info("OllamaStreamHandler.fragment: {}", s);
                         plugin.sendChatState(message.getFrom(), ChatState.composing);
                         String msg = s.substring(sb.length() , s.length());
                         sb.append(msg);
@@ -128,8 +132,8 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                     }
                 };
 
-                List<OllamaChatMessage> messages = plugin.getCachedMessages(message.getFrom().asBareJID()).stream().map(msg -> new OllamaChatMessage(msg.getRole(), msg.getContent())).collect(Collectors.toList());
 
+                List<OllamaChatMessage> messages = plugin.getCachedMessages(message.getFrom().asBareJID()).stream().map(msg -> new OllamaChatMessage(msg.getRole(), msg.getContent())).collect(Collectors.toList());
                 OllamaChatRequestModel request = OllamaChatRequestBuilder.getInstance(plugin.getChatModelSettings().getModel())
                         .withMessages(messages)
                         .withMessage(OllamaChatMessageRole.USER, message.getBody())
@@ -143,11 +147,11 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                             try {
                                 sleep(100);
                             } catch (InterruptedException e) {
-                                Log.debug("Interrupted while pinging ollama API", e);
+                                Log.info("Interrupted while pinging ollama API", e);
                             }
                         }
                     }catch(Exception  e) {
-                        Log.debug("Problem encountered pinging ollama API", e);
+                        Log.info("Problem encountered pinging ollama API", e);
                     }
 
                     result = ollamaAPI.chat(request, streamHandler);
@@ -155,8 +159,10 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                            sleep(100);
                     }
                 } catch (OllamaBaseException | IOException | InterruptedException e) {
-                    Log.debug(String.format("Problem encountered performing request: %s", request),e);
+                    Log.info(String.format("Problem encountered performing request: %s", request),e);
                 }
+
+                Log.info("Converse.Result: {}", sb.toString());
 
                 if (result != null && result.getHttpStatusCode() == 200  && !StringUtils.isEmpty(result.getResponse())) {
                     LinkedList<Message> updated = result.getChatHistory().stream().map(message -> new Message(message)).collect(Collectors.toCollection(LinkedList::new));
@@ -200,7 +206,9 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                 OllamaStreamHandler streamHandler = (s) -> {
                     if(s.length() <= sb.length()) {
                         completed.set(true);
+                        Log.info("OllamaStreamHandler.Result: {}", sb.toString());
                     } else {
+                        Log.info("OllamaStreamHandler.fragment: {}", s);
                         plugin.sendChatState(message.getFrom(), ChatState.composing);
                         String msg = s.substring(sb.length(), s.length());
                         sb.append(msg);
@@ -235,7 +243,7 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                             sleep(100);
                     }
                 } catch (OllamaBaseException | IOException | InterruptedException e) {
-                    Log.debug(String.format("Problem encountered performing request: %s", request),e);
+                    Log.info(String.format("Problem encountered performing request: %s", request),e);
                 }
 
                 if (result != null && result.getHttpStatusCode() == 200  && !StringUtils.isEmpty(result.getResponse())) {

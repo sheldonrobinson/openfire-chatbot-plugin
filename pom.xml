@@ -7,18 +7,19 @@
 	<parent>
 		<artifactId>plugins</artifactId>
 		<groupId>org.igniterealtime.openfire</groupId>
-		<version>4.7.5</version>
+		<version>4.8.1</version>
 	</parent>
 
 	<groupId>ia.konnkted.konstrukt</groupId>
 	<artifactId>chatbot</artifactId>
-	<version>0.2.11</version>
+	<version>0.2.22</version>
 	<name>ChatBot</name>
 	<description>Chatbot for Openfire</description>
 
     <properties>
         <lombok-version>RELEASE</lombok-version>
-        <openfire.version>4.7.5</openfire.version>
+        <openfire.version>4.8.1</openfire.version>
+		<jackson.version>2.12.2</jackson.version>
 		<github.global.server>github</github.global.server>
 		<github.maven.url>https://maven.pkg.github.com/sheldonrobinson/openfire-chatbot-plugin</github.maven.url>
 		<github.developer.id>sheldonrobinson</github.developer.id>
@@ -42,13 +43,6 @@
 		<developerConnection>scm:git:ssh://github.com:sheldonrobinbson/openfire-chatbot-plugin.git</developerConnection>
 		<url>http://github.com/sheldonrobinbson/openfire-chatbot-plugin/tree/master</url>
 	</scm>
-	<!-- distributionManagement>
-		<repository>
-			<id>internal.repo</id>
-			<name>Temporary Staging Repository</name>
-			<url>file://${project.build.directory}/mvn-repo</url>
-		</repository>
-	</distributionManagement -->
 	<distributionManagement>
 		<repository>
 			<id>github</id>
@@ -60,6 +54,33 @@
 	<build>
 		<sourceDirectory>src/java</sourceDirectory>
 		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-enforcer-plugin</artifactId>
+				<version>3.5.0</version>
+				<executions>
+					<execution>
+						<id>enforce-no-snapshots</id>
+						<goals>
+							<goal>enforce</goal>
+						</goals>
+						<configuration>
+							<rules>
+								<requireReleaseDeps>
+									<message>No Snapshots Allowed!</message>
+									<excludes>
+										<exclude>org.apache.maven:maven-core</exclude>
+										<exclude>org.apache.maven.plugins:*</exclude>
+										<exclude>org.igniterealtime.openfire.botz:botz</exclude>
+										<exclude>org.igniterealtime.openfire.plugins:monitoring</exclude>
+									</excludes>
+								</requireReleaseDeps>
+							</rules>
+							<fail>true</fail>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-resources-plugin</artifactId>
@@ -152,41 +173,6 @@
 					</execution>
 				</executions>
 			</plugin>
-			<!-- plugin>
-				<groupId>com.github.github</groupId>
-				<artifactId>site-maven-plugin</artifactId>
-				<version>0.12</version>
-				<configuration>
-					<message>Creating site for ${project.name}/${project.version}</message>
-					<noJekyll>true</noJekyll>
-					<outputDirectory>${project.build.directory}/mvn-repo</outputDirectory>
-					<branch>refs/heads/mvn-repo</branch>
-					<includes>
-						<include>**/*</include>
-					</includes>
-					<merge>true</merge>
-					<repositoryName>openfire-chatbot-plugin</repositoryName>
-					<repositoryOwner>sheldonrobinson</repositoryOwner>
-				</configuration>
-				<executions>
-					<execution>
-						<goals>
-							<goal>site</goal>
-						</goals>
-						<phase>deploy</phase>
-					</execution>
-				</executions>
-			</plugin -->
-			<!-- plugin>
-				<groupId>org.sonatype.central</groupId>
-				<artifactId>central-publishing-maven-plugin</artifactId>
-				<version>0.3.0</version>
-				<extensions>true</extensions>
-				<configuration>
-					<publishingServerId>central</publishingServerId>
-					<tokenAuth>true</tokenAuth>
-				</configuration>
-			</plugin -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
@@ -215,13 +201,23 @@
 		<dependency>
 			<groupId>org.igniterealtime.openfire.botz</groupId>
 			<artifactId>botz</artifactId>
-			<version>1.2.0</version>
+			<version>1.2.2-SNAPSHOT</version>
 		</dependency>
 
 		<dependency>
 			<groupId>io.github.amithkoujalgi</groupId>
 			<artifactId>ollama4j</artifactId>
-			<version>1.0.64</version>
+			<version>1.0.73</version>
+		</dependency>
+		<dependency>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-databind</artifactId>
+			<version>${jackson.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.fasterxml.jackson.datatype</groupId>
+			<artifactId>jackson-datatype-jsr310</artifactId>
+			<version>${jackson.version}</version>
 		</dependency>
 
 		<dependency>
@@ -231,11 +227,11 @@
 		</dependency>
 
 
-		<dependency>
+		<!-- dependency>
 			<groupId>org.jrobin</groupId>
 			<artifactId>jrobin</artifactId>
 			<version>1.6.0</version>
-		</dependency>
+		</dependency -->
 
         <dependency>
             <groupId>org.projectlombok</groupId>
