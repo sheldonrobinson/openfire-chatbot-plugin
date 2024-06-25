@@ -39,7 +39,6 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
     private BotzConnection bot;
     private ConversationManager conversationManager;
     private ArchiveSearcher archiveSearcher;
-    private MonitoringPlugin plugin;
     private final Cache<JID, LinkedList<Message>> cache = CacheFactory.createCache(Constants.CHATBOT_LLM_CACHE_NAME);
     private ChatModelSettings chatModelSettings;
     private JID botzJid;
@@ -126,7 +125,7 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
         cache.setMaxCacheSize(JiveGlobals.getLongProperty("chatbot.model.cache.size",Constants.CHATBOT_MODEL_CACHE_SIZE_DEFAULT));
         cache.setMaxLifetime(JiveGlobals.getLongProperty("chatbot.model.cache.lifetime,",Constants.CHATBOT_MODEL_CACHE_LIFETIME_DEFAULT));
 
-        plugin = (MonitoringPlugin) pluginManager.getPluginByName(MonitoringConstants.PLUGIN_NAME).get();
+        final MonitoringPlugin plugin = (MonitoringPlugin) pluginManager.getPluginByName(MonitoringConstants.PLUGIN_NAME).get();
 
         conversationManager = plugin.getConversationManager();
         archiveSearcher = plugin.getArchiveSearcher();
@@ -170,7 +169,6 @@ public class ChatbotPlugin implements Plugin, PropertyEventListener, MUCEventLis
         chatModelSettings = null;
         mucManager = null;
         conversationManager = null;
-        plugin = null;
     }
 
     @Override

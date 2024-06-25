@@ -8,7 +8,7 @@
     <licenseType>Apache 2.0</licenseType>
     <parentPlugin>monitoring</parentPlugin>
     <date>2024-02-11</date>
-    <minServerVersion>4.7.5</minServerVersion>
+    <minServerVersion>4.8.0</minServerVersion>
     <minJavaVersion>1.8</minJavaVersion>
     <csrfProtectionEnabled>true</csrfProtectionEnabled>
 

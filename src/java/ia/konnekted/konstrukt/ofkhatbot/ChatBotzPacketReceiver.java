@@ -124,6 +124,7 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                         completed.set(true);
                         Log.info("OllamaStreamHandler.Result: {}", sb.toString());
                     } else {
+                        Log.info("OllamaStreamHandler.fragment: {}", s);
                         plugin.sendChatState(message.getFrom(), ChatState.composing);
                         String msg = s.substring(sb.length() , s.length());
                         sb.append(msg);
@@ -205,7 +206,9 @@ public class ChatBotzPacketReceiver implements BotzPacketReceiver {
                 OllamaStreamHandler streamHandler = (s) -> {
                     if(s.length() <= sb.length()) {
                         completed.set(true);
+                        Log.info("OllamaStreamHandler.Result: {}", sb.toString());
                     } else {
+                        Log.info("OllamaStreamHandler.fragment: {}", s);
                         plugin.sendChatState(message.getFrom(), ChatState.composing);
                         String msg = s.substring(sb.length(), s.length());
                         sb.append(msg);
